@@ -242,6 +242,26 @@ def summarize_columns(data, sort_by=None, ascending=True):
     return columns_summary
 
 
+
+#This function searches a dataframe for missing row combinations using two predefined columns as keys.
+#It returns a dataframe containing only the missing combinations, made up exclusively of the key columns.
+def find_missing_combinations(df, col1, col2):
+    values1 = df[col1].unique()
+    values2 = df[col2].unique()
+
+    existing = set()
+    for index, row in df.iterrows():
+        existing.add((row[col1], row[col2]))
+
+    missing = []
+    for v1 in values1:
+        for v2 in values2:
+            if (v1, v2) not in existing:
+                missing.append((v1, v2))
+
+    return pd.DataFrame(missing, columns=[col1, col2])
+
+
 # =============================================================================
 # UNIVARIATE ANALYSIS
 # =============================================================================
