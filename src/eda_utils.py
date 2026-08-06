@@ -272,7 +272,9 @@ def plot_numeric_distribution(data, col, bins=30, auto_log=True,
 
     # The log scale is used only when requested, when the skew is above the
     # threshold and when all the values are positive (log is undefined otherwise).
-    use_log = auto_log and skew > skew_threshold and (values > 0).all()
+    # The result is cast to bool because the last condition returns a numpy
+    # boolean, which seaborn reads as a log base and rejects.
+    use_log = bool(auto_log and skew > skew_threshold and (values > 0).all())
 
     # The two panels share the x axis; the histogram is given more height than the
     # boxplot through the height ratios.
@@ -298,7 +300,7 @@ def plot_numeric_distribution(data, col, bins=30, auto_log=True,
     _figure_title(fig, "Distribution of " + _pretty(col))
     fig.tight_layout()
     plt.show()
-    return fig, (ax_hist, ax_box)
+    #return fig, (ax_hist, ax_box)
 
 
 # This function describes a discrete numeric variable. Beside the frequency
@@ -334,7 +336,7 @@ def plot_discrete_distribution(data, col, figsize=(11, 5), ax=None):
     if created:
         fig.tight_layout()
     plt.show()
-    return fig, ax
+    #return fig, ax
 
 
 # This function describes a categorical variable. It prints the frequency table
@@ -386,7 +388,7 @@ def plot_categorical_distribution(data, col, max_categories=20, sort=True,
     if created:
         fig.tight_layout()
     plt.show()
-    return fig, ax
+    #return fig, ax
 
 
 # This function auto detects the type of a column and dispatches it to the right
@@ -400,16 +402,15 @@ def describe_variable(data, col, **kwargs):
     kind = infer_variable_type(data[col])
     print("Detected type for '" + col + "': " + kind)
     if kind == "continuous":
-        return plot_numeric_distribution(data, col, **kwargs)
+        plot_numeric_distribution(data, col, **kwargs)
     if kind == "discrete":
-        return plot_discrete_distribution(data, col, **kwargs)
+        plot_discrete_distribution(data, col, **kwargs)
     if kind == "categorical":
-        return plot_categorical_distribution(data, col, **kwargs)
+        plot_categorical_distribution(data, col, **kwargs)
     # The remaining case is the temporal one.
     s = pd.to_datetime(data[col], errors="coerce").dropna()
     print("Range: " + str(s.min()) + " -> " + str(s.max())
           + "  |  " + str(s.nunique()) + " unique timestamps")
-    return None
 
 
 # =============================================================================
@@ -465,7 +466,7 @@ def numeric_vs_numeric(data, x_col, y_col, hue_col=None, reg_line=True,
     if created:
         fig.tight_layout()
     plt.show()
-    return fig, ax
+    #return fig, ax
 
 
 # This function shows how a numeric variable behaves across the values of a
@@ -510,7 +511,7 @@ def categorical_vs_numeric(data, cat_col, num_col, kind="violin",
     if created:
         fig.tight_layout()
     plt.show()
-    return fig, ax
+    #return fig, ax
 
 
 # This function shows the relationship between two categorical variables. It
@@ -547,7 +548,7 @@ def categorical_vs_categorical(data, col1, col2, normalize="index",
     if created:
         fig.tight_layout()
     plt.show()
-    return fig, ax
+    #return fig, ax
 
 
 # =============================================================================
@@ -607,7 +608,7 @@ def plot_time_series(data, columns, date_col=None, normalize=False,
     if created:
         fig.tight_layout()
     plt.show()
-    return fig, ax
+    #return fig, ax
 
 
 # This function draws a 100% stacked area of the row-wise composition of the
@@ -662,7 +663,7 @@ def plot_stacked_area_percent(data, columns=None, date_col=None,
     if created:
         fig.tight_layout()
     plt.show()
-    return fig, ax
+    #return fig, ax
 
 
 # This function draws a heatmap of a value aggregated over two calendar
@@ -711,7 +712,7 @@ def plot_seasonality_heatmap(data, date_col, value_col, agg="mean",
     _left_title(ax, _pretty(value_col) + ": " + row + " x " + col + " seasonality")
     fig.tight_layout()
     plt.show()
-    return fig, ax
+    #return fig, ax
 
 
 # =============================================================================
@@ -750,7 +751,7 @@ def plot_correlation_heatmap(data, method="pearson", columns=None,
     _left_title(ax, "Correlation heatmap (" + method + ")")
     fig.tight_layout()
     plt.show()
-    return fig, ax
+    #return fig, ax
 
 
 # This function draws a faceted scatter of x versus y split by a category, with a
@@ -778,9 +779,18 @@ def numeric_vs_numeric_by_category(data, x_col, y_col, cat_col,
                     line_kws={"color": GOLD, "linewidth": 1.4})
     g.set_titles(col_template="{col_name}", size=10, fontweight="bold")
     g.set_axis_labels(_pretty(x_col), _pretty(y_col))
-    g.figure.suptitle(_pretty(y_col) + " vs " + _pretty(x_col) + " by " + _pretty(cat_col),
-                      x=0.01, ha="left", fontweight="bold", fontsize=14)
-    g.figure.subplots_adjust(top=0.90)
+    g.figure.suptitle(
+        _pretty(y_col) + " vs " + _pretty(x_col) + " by " + _pretty(cat_col),
+        x=0.01,
+        y=1.02,
+        ha="left",
+        va="bottom",
+        fontweight="bold",
+        fontsize=14
+        )
+
+    # Leave more space between the main title and the facet titles.
+    g.figure.subplots_adjust(top=0.84)
 
     # The overall correlation first, then the correlation inside each group: if
     # they disagree, the category is changing the relationship.
@@ -793,4 +803,4 @@ def numeric_vs_numeric_by_category(data, x_col, y_col, cat_col,
             print("  " + str(label) + ": correlation = " + format(r, ".4f")
                   + " (n = " + str(len(sub)) + ")")
     plt.show()
-    return g
+    #return g
