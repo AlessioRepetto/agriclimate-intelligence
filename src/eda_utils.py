@@ -403,14 +403,21 @@ def describe_variable(data, col, **kwargs):
     print("Detected type for '" + col + "': " + kind)
     if kind == "continuous":
         plot_numeric_distribution(data, col, **kwargs)
-    if kind == "discrete":
+
+    elif kind == "discrete":
         plot_discrete_distribution(data, col, **kwargs)
-    if kind == "categorical":
+
+    elif kind == "categorical":
         plot_categorical_distribution(data, col, **kwargs)
-    # The remaining case is the temporal one.
-    s = pd.to_datetime(data[col], errors="coerce").dropna()
-    print("Range: " + str(s.min()) + " -> " + str(s.max())
-          + "  |  " + str(s.nunique()) + " unique timestamps")
+
+    else:
+        # The remaining case is the temporal one.
+        s = data[col].dropna()
+
+        print(
+            "Range: " + str(s.min()) + " -> " + str(s.max())
+            + "  |  " + str(s.nunique()) + " unique timestamps"
+        )
 
 
 # =============================================================================
@@ -511,7 +518,56 @@ def categorical_vs_numeric(data, cat_col, num_col, kind="violin",
     if created:
         fig.tight_layout()
     plt.show()
-    #return fig, ax
+
+
+# This function compares the distributions of several numeric variables. It
+# prints the descriptive summary of each column (count, mean, quartiles, and so
+# on) and draws a violin (or box) plot, with the variables ordered by median, so
+# their distributions can be compared directly from the chart.
+def numeric_columns_comparison(data, num_cols, kind="violin",
+                               figsize=(8, 6), ax=None):
+    set_plot_style()
+    _check_columns(data, num_cols)
+
+    d = data[num_cols].copy()
+    for col in num_cols:
+        d[col] = pd.to_numeric(d[col], errors="coerce")
+
+    # The columns are moved to long format so each numeric variable becomes a
+    # group, then the groups are ordered by median.
+    d = d.melt(var_name="variable", value_name="value")
+    d = d.dropna(subset=["value"])
+    if d.empty:
+        raise ValueError("No valid rows for the requested numeric comparison.")
+
+    order = (
+        d.groupby("variable")["value"]
+        .median()
+        .sort_values(ascending=False)
+        .index.tolist()
+    )
+
+    # The summary of each numeric variable.
+    display(d.groupby("variable")["value"].describe())
+
+    fig, ax, created = _resolve_ax(ax, figsize)
+    if kind == "violin":
+        sns.violinplot(data=d, x="value", y="variable", order=order, color=TEAL,
+                       inner="quart", linewidth=1, linecolor="white", ax=ax)
+    else:
+        # For the boxplot the color is mapped through hue (with the legend off)
+        # to follow the current seaborn behaviour.
+        sns.boxplot(data=d, x="value", y="variable", order=order, hue="variable",
+                    hue_order=order, palette=_get_palette(len(order)),
+                    legend=False, showmeans=True, ax=ax)
+
+    ax.set_xlabel("Value")
+    ax.set_ylabel("")
+    _clean_axes(ax)
+    _left_title(ax, "Numeric variables comparison")
+    if created:
+        fig.tight_layout()
+    plt.show()
 
 
 # This function shows the relationship between two categorical variables. It
