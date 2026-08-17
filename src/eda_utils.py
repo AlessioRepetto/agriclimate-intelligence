@@ -5,9 +5,9 @@
 # categorical and temporal variables, but it only produces descriptive
 # statistics and charts: there is no hypothesis test.
 #
-# Every plotting function returns the figure and the axes, so the charts can be
-# reused or composed into subplot grids. The functions also print/display a
-# short descriptive summary while running, which is the point of interactive EDA.
+# Plotting functions can reuse axes supplied by the caller, so charts can also
+# be composed into subplot grids. The functions print/display a short descriptive
+# summary while running, which is the point of interactive EDA.
 #
 # The visual identity is shared across all charts: the gold/teal palette, the
 # seaborn white style, the top and right borders removed and the titles aligned
@@ -83,6 +83,8 @@ def set_plot_style():
     plt.rcParams["axes.spines.right"] = False
     plt.rcParams["axes.titleweight"] = "bold"
     plt.rcParams["axes.titlesize"] = 14
+    plt.rcParams["axes.titlelocation"] = "left"
+    plt.rcParams["axes.titlepad"] = 12
     plt.rcParams["axes.labelsize"] = 11
     plt.rcParams["xtick.labelsize"] = 10
     plt.rcParams["ytick.labelsize"] = 10
@@ -137,27 +139,33 @@ def _pretty(label):
 
 
 # This helper places a left aligned bold title (and an optional subtitle) above
-# the axes. It works in axes fraction coordinates so the alignment does not move
-# when the tick labels get wider. It is the single place where the title style
-# is defined, so all the single axis charts look the same.
+# the axes. Matplotlib's native title positioning is used so the distance from
+# the plot is measured consistently in points across figures of different sizes.
 def _left_title(ax, title, subtitle=None):
+    ax.set_title(
+        title,
+        loc="left",
+        pad=28 if subtitle else 12,
+        fontsize=14,
+        fontweight="bold",
+        color=DARK,
+    )
     if subtitle:
-        ax.text(0.0, 1.10, title, transform=ax.transAxes, ha="left", va="bottom",
-                fontsize=14, fontweight="bold", color=DARK)
         ax.text(0.0, 1.02, subtitle, transform=ax.transAxes, ha="left", va="bottom",
                 fontsize=11, color=GRAY_MED)
-    else:
-        ax.text(0.0, 1.02, title, transform=ax.transAxes, ha="left", va="bottom",
-                fontsize=14, fontweight="bold", color=DARK)
     return ax
 
 
-# This helper is the equivalent of _left_title but for figures with more than one
-# axes, where a single figure level title is needed.
+# This helper is the equivalent of _left_title for multi-axes figures. The title
+# starts at the same horizontal position as the subplot area instead of at the
+# outer edge of the full figure.
 def _figure_title(fig, title, subtitle=None):
-    fig.suptitle(title, x=0.01, y=1.02, ha="left", fontweight="bold", fontsize=14)
+    x = fig.subplotpars.left
+    fig.suptitle(title, x=x, y=0.98, ha="left", va="top",
+                 fontweight="bold", fontsize=14, color=DARK)
     if subtitle:
-        fig.text(0.01, 0.97, subtitle, ha="left", va="top", fontsize=11, color=GRAY_MED)
+        fig.text(x, 0.935, subtitle, ha="left", va="top",
+                 fontsize=11, color=GRAY_MED)
     return fig
 
 
@@ -297,10 +305,9 @@ def plot_numeric_distribution(data, col, bins=30, auto_log=True,
 
     for ax in (ax_hist, ax_box):
         _clean_axes(ax)
-    _figure_title(fig, "Distribution of " + _pretty(col))
+    _left_title(ax_hist, "Distribution of " + _pretty(col))
     fig.tight_layout()
     plt.show()
-    #return fig, (ax_hist, ax_box)
 
 
 # This function describes a discrete numeric variable. Beside the frequency
@@ -336,7 +343,6 @@ def plot_discrete_distribution(data, col, figsize=(11, 5), ax=None):
     if created:
         fig.tight_layout()
     plt.show()
-    #return fig, ax
 
 
 # This function describes a categorical variable. It prints the frequency table
@@ -388,7 +394,6 @@ def plot_categorical_distribution(data, col, max_categories=20, sort=True,
     if created:
         fig.tight_layout()
     plt.show()
-    #return fig, ax
 
 
 # This function auto detects the type of a column and dispatches it to the right
@@ -473,7 +478,6 @@ def numeric_vs_numeric(data, x_col, y_col, hue_col=None, reg_line=True,
     if created:
         fig.tight_layout()
     plt.show()
-    #return fig, ax
 
 
 # This function shows how a numeric variable behaves across the values of a
@@ -604,7 +608,6 @@ def categorical_vs_categorical(data, col1, col2, normalize="index",
     if created:
         fig.tight_layout()
     plt.show()
-    #return fig, ax
 
 
 # =============================================================================
@@ -664,7 +667,6 @@ def plot_time_series(data, columns, date_col=None, normalize=False,
     if created:
         fig.tight_layout()
     plt.show()
-    #return fig, ax
 
 
 # This function draws a 100% stacked area of the row-wise composition of the
@@ -719,7 +721,6 @@ def plot_stacked_area_percent(data, columns=None, date_col=None,
     if created:
         fig.tight_layout()
     plt.show()
-    #return fig, ax
 
 
 # This function draws a heatmap of a value aggregated over two calendar
@@ -768,7 +769,6 @@ def plot_seasonality_heatmap(data, date_col, value_col, agg="mean",
     _left_title(ax, _pretty(value_col) + ": " + row + " x " + col + " seasonality")
     fig.tight_layout()
     plt.show()
-    #return fig, ax
 
 
 # =============================================================================
@@ -807,7 +807,6 @@ def plot_correlation_heatmap(data, method="pearson", columns=None,
     _left_title(ax, "Correlation heatmap (" + method + ")")
     fig.tight_layout()
     plt.show()
-    #return fig, ax
 
 
 # This function draws a faceted scatter of x versus y split by a category, with a
@@ -835,18 +834,13 @@ def numeric_vs_numeric_by_category(data, x_col, y_col, cat_col,
                     line_kws={"color": GOLD, "linewidth": 1.4})
     g.set_titles(col_template="{col_name}", size=10, fontweight="bold")
     g.set_axis_labels(_pretty(x_col), _pretty(y_col))
-    g.figure.suptitle(
-        _pretty(y_col) + " vs " + _pretty(x_col) + " by " + _pretty(cat_col),
-        x=0.01,
-        y=1.02,
-        ha="left",
-        va="bottom",
-        fontweight="bold",
-        fontsize=14
-        )
-
-    # Leave more space between the main title and the facet titles.
+    # Leave more space between the main title and the facet titles, then align
+    # the figure title with the left edge of the subplot area.
     g.figure.subplots_adjust(top=0.84)
+    _figure_title(
+        g.figure,
+        _pretty(y_col) + " vs " + _pretty(x_col) + " by " + _pretty(cat_col),
+    )
 
     # The overall correlation first, then the correlation inside each group: if
     # they disagree, the category is changing the relationship.
@@ -859,4 +853,3 @@ def numeric_vs_numeric_by_category(data, x_col, y_col, cat_col,
             print("  " + str(label) + ": correlation = " + format(r, ".4f")
                   + " (n = " + str(len(sub)) + ")")
     plt.show()
-    #return g
