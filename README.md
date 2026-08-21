@@ -1,104 +1,268 @@
 # AgriClimate Intelligence
 
-Data engineering, exploratory analysis, feature engineering, and machine-learning development for studying the relationship between climate conditions and agricultural yields in Italy at subnational level.
+Data engineering, exploratory analysis, and machine-learning development for studying the relationship between climate conditions and agricultural yields in Italy at subnational level.
 
-> [!IMPORTANT]
-> **This repository documents an active work in progress.**
+> **Work in progress**
 >
-> The climate and agricultural-production ETL pipelines are implemented, and the exploratory analysis now includes crop-season reconstruction, phase-based climate feature engineering, and climate–yield bivariate analysis.
+> This repository documents an active Capstone Project. The climate and agricultural-production pipelines are implemented, the exploratory analysis has reached the modelling hand-off stage, and a dedicated quantile-modelling workflow is now under development.
 >
-> The analytical dataset and feature-selection process are still being refined. Predictive modeling, model evaluation, interpretation, and final decision-support outputs have not yet been completed.
+> Model selection is **not yet final**. In particular, the 2019–2022 out-of-time test period remains intentionally untouched until the crop-specific model-selection rule has been fixed.
 
 ## Project overview
 
 AgriClimate Intelligence is a Capstone Project developed within the Executive Master in Data Science at Rome Business School.
 
-The project aims to build a reproducible workflow that can progressively:
+The project investigates how historical agricultural yields vary across Italian territories and how much additional predictive information can be extracted from climate and environmental conditions.
+
+The practical objective is to build a reproducible workflow that can:
 
 1. collect and harmonize historical climate and agricultural-production data;
-2. evaluate territorial and temporal coverage and data quality;
-3. reconstruct agriculturally meaningful crop seasons;
-4. engineer climate and environmental features over crop-development phases;
-5. investigate their relationship with agricultural yield;
-6. construct modeling-ready province–crop–year observations;
-7. estimate agricultural yield using suitable machine-learning models;
-8. interpret the main factors associated with yield variability;
-9. evaluate predictive robustness and practical limitations.
+2. assess temporal, territorial, and structural data quality;
+3. reconstruct agronomically meaningful crop seasons;
+4. engineer climate and historical yield predictors;
+5. estimate crop yield through temporally validated predictive models;
+6. quantify predictive uncertainty through conditional quantiles;
+7. compare parsimonious statistical models with nonlinear tabular approaches;
+8. evaluate temporal robustness before touching the final test period;
+9. support later interpretation and decision-oriented communication.
 
-The current work focuses on historical relationships between climate conditions and agricultural yield. Forecasting, scenario analysis, and broader decision-support applications remain possible later extensions.
+The project follows an iterative CRISP-DM logic: findings from EDA and modelling can lead to revisions of feature definitions, validation choices, or modelling assumptions.
 
 ## Current project status
 
-The project is currently in the **Data Preparation** stage of CRISP-DM, following an extensive Data Understanding phase. The first modeling stage has not yet started.
+| Area | Current status |
+| --- | --- |
+| Project scope | Defined and refined through the evidence emerging from the data |
+| Raw climate storage | Implemented in Google Cloud Storage |
+| Climate ETL | Implemented for the mapped Italian provincial files |
+| Production ETL | Implemented, including territorial harmonization and quality flags |
+| Curated cloud tables | Available in BigQuery |
+| Exploratory data analysis | Advanced and currently used as the analytical hand-off to modelling |
+| Crop-season feature engineering | Implemented for the current modelling dataset |
+| Climate–yield bivariate analysis | Implemented in the EDA workflow |
+| Integrated modelling dataset | Built locally for the current modelling experiments |
+| Historical quantile baseline | Implemented |
+| Sequential feature selection | Implemented and retained as fixed selected feature sets |
+| L1 quantile-regression experiment | Implemented |
+| CatBoost comparison | Implemented for the current Q2 experiments |
+| TabPFN comparison | Implemented for the current candidate configurations |
+| Outer temporal validation | Implemented on 2016–2018 |
+| Temporal robustness checks | Implemented for the strongest competing specifications |
+| Final crop-specific model selection | **Open / WIP** |
+| Final 2019–2022 test evaluation | **Not yet performed** |
+| Final interpretation and communication | Not yet completed |
 
-| Area                                    | Current status                                   |
-| --------------------------------------- | ------------------------------------------------ |
-| Project scope                           | Defined and refined through the ongoing analysis |
-| Raw data storage                        | Implemented in Google Cloud Storage              |
-| Climate ETL                             | Implemented                                      |
-| Production ETL                          | Implemented                                      |
-| Curated cloud tables                    | Available in BigQuery                            |
-| Data-quality and completeness analysis  | Implemented                                      |
-| Yield trend analysis                    | Implemented                                      |
-| Yield autocorrelation analysis          | Implemented through PACF summaries               |
-| Crop-season reconstruction              | Implemented                                      |
-| Phase-based climate feature engineering | Implemented                                      |
-| Climate–yield bivariate analysis        | Implemented                                      |
-| Crop-specific feature screening         | In progress                                      |
-| Integrated analytical dataset           | Implemented and still being refined              |
-| Final training dataset                  | Not yet frozen                                   |
-| Baseline models                         | Not yet implemented                              |
-| Machine-learning models                 | Not yet implemented                              |
-| Model evaluation and interpretation     | Not yet implemented                              |
-| Final report / decision-support output  | Not yet implemented                              |
-
-The repository should therefore be read as the evolving technical workspace of the project rather than as a completed analytical product.
-
-## Methodological framework
-
-The project follows the iterative **CRISP-DM** framework.
-
-### 1. Business Understanding
-
-Define the analytical problem, practical scope, constraints, and criteria by which the work should be evaluated.
-
-### 2. Data Understanding
-
-Inspect available sources, variables, spatial and temporal granularity, completeness, data quality, and informative value.
-
-### 3. Data Preparation
-
-Validate and harmonize the source data, align climate observations with crop seasons, engineer features, integrate climate and production information, and prepare the modeling target.
-
-### 4. Modeling
-
-Establish transparent baselines and compare suitable supervised models for agricultural-yield estimation.
-
-### 5. Evaluation
-
-Assess predictive performance, temporal and territorial robustness, error patterns, interpretability, and agronomic plausibility.
-
-### 6. Deployment and Communication
-
-Translate the work into reproducible pipelines, documented analyses, visualizations, and possible decision-support outputs.
-
-The phases are not strictly linear. Findings from the EDA, feature engineering, or future modeling stages may require revisiting previous assumptions and transformations.
+This table describes the state visible in the repository at the time of writing and should evolve with the project.
 
 ## Current analytical scope
 
-The repository currently works with:
+The current modelling work focuses on three crops:
 
-* historical climate and environmental observations;
-* historical agricultural area, production, and yield data;
-* Italian provinces or harmonized subnational production areas;
-* monthly provincial climate indicators;
-* annual province–crop production observations;
-* crop-specific agricultural calendars;
-* climate features aggregated over crop-development phases;
-* production variables and lagged production information;
-* multiple crops analysed within a common workflow.
+- **Durum wheat**
+- **Soft wheat**
+- **Grain maize**
 
-The final modeling scope may be narrower than the full curated datasets. Feature selection and admissible observations are still being refined through the exploratory analysis.
+The modelling observation unit is:
+
+```text
+province × crop × harvest year
+```
+
+The available information includes:
+
+- historical agricultural yield;
+- cultivated area and production;
+- province and region;
+- lagged and rolling historical yield information;
+- monthly climate and environmental indicators;
+- crop-season and crop-phase aggregations;
+- altitude characteristics;
+- climate-event frequency and duration measures.
+
+Current-year `area`, `production`, and `yield` are not used as model predictors.
+
+## Data architecture
+
+The project combines Google Cloud resources with locally executed notebooks.
+
+```text
+Raw source data
+      │
+      ├── Climate files in Google Cloud Storage
+      └── Agricultural-production source
+      │
+      ▼
+ETL notebooks + reusable Python transformations
+      │
+      ▼
+Curated datasets
+      │
+      ├── BigQuery curated tables
+      └── Optional local CSV exports
+      │
+      ▼
+EDA and crop-season feature engineering
+      │
+      ▼
+Local modelling dataset
+      │
+      ▼
+Temporal model development and validation
+```
+
+The Google Cloud project is:
+
+```text
+Project name: AgriClimate Intelligence
+Project ID: agriclimate-intelligence
+```
+
+The main curated BigQuery resources used by the analytical workflow are:
+
+```text
+agriclimate-intelligence.curated.climate_full_dataset_v1
+agriclimate-intelligence.curated.production_full_dataset_v1
+```
+
+Raw datasets, generated analytical datasets, credentials, and private configuration are not versioned in the public repository.
+
+## Data currently processed
+
+### Climate data
+
+The raw climate files contain daily gridded observations with multiple cells for each source province.
+
+The transformation works with variables including:
+
+- grid-cell identifier;
+- latitude and longitude;
+- altitude;
+- date;
+- minimum, average, and maximum temperature;
+- wind speed;
+- vapour pressure;
+- precipitation;
+- reference evapotranspiration;
+- solar radiation.
+
+The climate pipeline derives monthly provincial indicators that retain information about:
+
+- average conditions;
+- local extremes;
+- spatial variability;
+- territorial share affected by an event;
+- event frequency;
+- consecutive-event duration;
+- precipitation totals and intensity;
+- evapotranspiration and radiation;
+- static altitude characteristics.
+
+The curated climate history spans **1980–2025**.
+
+### Agricultural production data
+
+The production workflow processes historical information on:
+
+- cultivated area;
+- total production;
+- agricultural yield;
+- crop;
+- year;
+- source territory;
+- territorial coverage;
+- reconstruction and quality status.
+
+The current modelling horizon uses agricultural observations through **2022**.
+
+The production pipeline preserves dedicated quality fields so that missing source components, structural zeroes, reconstructed territories, and other quality conditions are not silently lost during downstream analysis.
+
+## Exploratory analysis
+
+`notebooks/EDA_AgriClimate_Intelligence.ipynb` is the main analytical notebook before modelling.
+
+Its current role includes:
+
+- structural and consistency checks on the curated data;
+- temporal and territorial completeness analysis;
+- production and climate univariate exploration;
+- yield distribution analysis;
+- yield trends across territories and macro-areas;
+- robust trend estimation;
+- partial-autocorrelation summaries;
+- altitude analysis;
+- crop-season and crop-phase climate reconstruction;
+- bivariate analysis between yield and engineered predictors;
+- comparison of environmental patterns across crops and phases;
+- preparation of the modelling dataset used by the machine-learning notebook.
+
+The EDA should be read as the analytical justification for the modelling choices rather than as a separate final report.
+
+## Quantile modelling
+
+`notebooks/ML_Quantile_Modelling.ipynb` is the current main modelling notebook.
+
+The objective is not only to estimate a central yield prediction, but to model conditional yield quantiles:
+
+- **Q1** = 0.25 quantile;
+- **Q2** = 0.50 quantile / conditional median;
+- **Q3** = 0.75 quantile.
+
+Q2 is the primary model-selection target, while Q1 and Q3 are retained where useful to assess the broader conditional distribution.
+
+### Temporal design
+
+All model development is chronological.
+
+The development period ends in **2015** and uses three expanding validation folds:
+
+```text
+train through 2006 → validate on 2007–2009
+train through 2009 → validate on 2010–2012
+train through 2012 → validate on 2013–2015
+```
+
+A later block is then used as outer validation:
+
+```text
+2016–2018 → model-selection validation
+```
+
+The final benchmark is:
+
+```text
+2019–2022 → untouched final test
+```
+
+The 2019–2022 period is intentionally excluded from training, feature selection, hyperparameter decisions, and current model selection.
+
+### Current modelling sequence
+
+The notebook currently compares:
+
+1. a scaled historical linear quantile baseline;
+2. linear quantile regression with Sequential Forward Selection;
+3. L1-regularized linear quantile regression;
+4. CatBoost as a conventional nonlinear tabular model;
+5. TabPFN as a tabular foundation model;
+6. temporal robustness checks on the strongest competing specifications.
+
+The current modelling table contains **7,576 usable target observations**. The candidate feature pool contains **4 historical predictors** and **192 crop-phase climate predictors**.
+
+The SFS search is computationally expensive and is therefore not rerun on every notebook execution. The selected crop-specific feature sets are stored explicitly and reused in the subsequent experiments.
+
+### Current modelling boundary
+
+The notebook deliberately ends before final test evaluation.
+
+At the current stage:
+
+- the evidence for durum wheat is already concentrated around a parsimonious historical linear specification;
+- grain maize still requires a final rule for choosing between the strongest linear and TabPFN alternatives;
+- soft wheat still presents a trade-off between average temporal robustness and stronger performance in the most recent validation period.
+
+These are **intermediate model-selection findings**, not final test conclusions.
+
+The final selection rule must be fixed before the 2019–2022 benchmark is evaluated.
 
 ## Repository structure
 
@@ -111,263 +275,68 @@ agriclimate-intelligence/
 │   ├── ETL_Climate_Data.ipynb
 │   ├── ETL_Climate_Example.ipynb
 │   ├── ETL_Production_Data.ipynb
+│   ├── ML_Quantile_Modelling.ipynb
 │   └── README.md
 ├── src/
 │   ├── __init__.py
 │   ├── eda_utils.py
+│   ├── modelling_utils.py
 │   ├── province_transformation.py
 │   └── README.md
 ├── .gitignore
 └── README.md
 ```
 
-Raw datasets and generated analytical datasets are not versioned in the public repository.
-
 See:
 
-* [`notebooks/README.md`](notebooks/README.md) for the role and current status of each notebook;
-* [`src/README.md`](src/README.md) for the reusable Python modules.
+- `notebooks/README.md` for the purpose, inputs, outputs, and status of each notebook;
+- `src/README.md` for the reusable Python modules.
 
-## Data architecture
+## Reusable source code
 
-The project currently combines Google Cloud storage and analytical services with locally executed notebooks.
+The `src/` directory currently separates three main responsibilities:
 
-```text
-Google Cloud Storage
-        │
-        │ raw source data
-        ▼
-ETL notebooks + reusable transformations
-        │
-        ▼
-Curated datasets
-        │
-        ▼
-BigQuery
-        │
-        ▼
-Exploratory analysis
-        │
-        ▼
-Crop-season reconstruction
-        │
-        ▼
-Phase-based feature engineering
-        │
-        ▼
-Integrated analytical dataset
-        │
-        ▼
-Feature screening
-        │
-        ▼
-Future modeling and evaluation
-```
+### `province_transformation.py`
 
-The Google Cloud project is:
+Reusable climate-data validation and transformation from daily gridded observations to monthly provincial indicators.
+
+### `eda_utils.py`
+
+Shared descriptive-analysis and plotting utilities, including the central project visual identity used across EDA and modelling charts.
+
+### `modelling_utils.py`
+
+Reusable functions for:
+
+- quantile-regression pipelines;
+- temporal cross-validation;
+- rolling historical medians;
+- Sequential Forward Selection;
+- L1 quantile regression;
+- CatBoost Q2 fitting;
+- quantile post-processing;
+- national-level aggregation;
+- national quantile-forecast visualization.
+
+`modelling_utils.py` deliberately reuses the palette and plotting style defined in `eda_utils.py` rather than maintaining a second visual configuration.
+
+## Running the project
+
+### Expected local layout
+
+Some workflows use local generated files that are intentionally excluded from Git.
 
 ```text
-Project name: AgriClimate Intelligence
-Project ID: agriclimate-intelligence
+agriclimate-intelligence/
+├── data/
+│   └── modelling_data.csv
+├── notebooks/
+└── src/
 ```
-
-The EDA notebook currently uses the following BigQuery resources by default:
-
-```text
-agriclimate-intelligence.curated.climate_full_dataset_v1
-agriclimate-intelligence.curated.production_full_dataset_v1
-```
-
-Local CSV copies can be used as an alternative when available.
-
-No credentials, service-account files, private configuration, or restricted source data should be committed to the repository.
-
-## Data currently processed
-
-### Climate data
-
-The raw climate files contain daily gridded observations, with multiple grid cells for each source province.
-
-The climate pipeline processes variables including:
-
-* temperature;
-* precipitation;
-* wind speed;
-* vapour pressure;
-* reference evapotranspiration;
-* solar radiation;
-* altitude.
-
-Daily cell-level observations are transformed into monthly provincial indicators describing:
-
-* average conditions;
-* local extremes;
-* spatial variability;
-* territorial shares affected by events;
-* event frequency;
-* consecutive-event duration;
-* precipitation, evapotranspiration, and radiation totals;
-* static altitude characteristics.
-
-The curated climate dataset covers monthly observations from 1980 to 2025.
-
-### Agricultural production data
-
-The production workflow processes historical information on:
-
-* cultivated area;
-* total production;
-* agricultural yield;
-* crop;
-* year;
-* source territory;
-* territorial coverage;
-* reconstruction and quality status.
-
-The resulting dataset is a long-format province–year–crop panel.
-
-Dedicated `q_*` fields retain information about missing source components, structural zeroes, reconstructed territories, territorial coverage, and other quality conditions.
-
-## Implemented workflows
-
-### Climate ETL
-
-The climate workflow:
-
-* reads the provincial source files from Google Cloud Storage;
-* validates schema, dates, numeric values, missing values, duplicate keys, and grid consistency;
-* handles source territories that must be combined to match production areas;
-* corrects inconsistent temperature ordering where possible;
-* calculates historical monthly reference thresholds;
-* identifies fixed-threshold and percentile-based climate events;
-* derives daily provincial indicators;
-* aggregates the results to province and month;
-* exports a consolidated curated climate dataset.
-
-### Production ETL
-
-The production workflow:
-
-* reads the agricultural-production source from Google Cloud Storage;
-* inspects source structure and relevant variables;
-* distinguishes absent observations from structural zeroes;
-* harmonizes changing or incompatible territorial definitions;
-* reconstructs selected production areas where necessary;
-* calculates yield from aggregated production and area;
-* creates provenance and quality indicators;
-* validates the final province–year–crop key;
-* exports a curated production panel.
-
-### Exploratory analysis and data preparation
-
-The EDA notebook currently covers:
-
-* structural and consistency checks;
-* temporal and territorial coverage;
-* absent and incomplete production observations;
-* quality indicators;
-* univariate analysis of production and climate variables;
-* agricultural-yield distributions;
-* temporal yield patterns across territories;
-* robust long-term trend estimation using Theil–Sen slopes;
-* partial autocorrelation analysis across independent province–crop series;
-* relationships between cultivated area and yield;
-* construction of agricultural crop calendars;
-* alignment of climate observations with harvest years;
-* aggregation of monthly climate variables over crop-development phases;
-* integration of climate, production, territorial, and lagged information;
-* crop-specific ranking of climate–yield associations;
-* screening of candidate features;
-* temporal and territorial inspection of selected variables;
-* comparison of environmental conditions across crop phases.
-
-The notebook remains exploratory: feature screening is intended to guide the modeling stage rather than to define a final causal interpretation of climate–yield relationships.
-
-## Current analytical boundary
-
-The repository can now address questions such as:
-
-* Are the curated datasets structurally coherent?
-* Which province–crop–year observations are available?
-* Which quality conditions affect the production data?
-* How does yield vary between crops, years, and territories?
-* Which province–crop series show long-term trends?
-* Do previous yield values contain potentially useful information?
-* How should monthly climate observations be aligned with crop seasons?
-* How do environmental conditions vary across crop-development phases?
-* Which engineered climate variables show the strongest exploratory relationships with yield?
-* Do these relationships differ between crops or territories?
-
-The following questions remain open:
-
-* Which candidate features should enter the final training dataset?
-* How much information is redundant across climate indicators?
-* Which historical production variables can be retained without leakage?
-* What validation design best represents the intended prediction problem?
-* Which baseline and machine-learning models perform best?
-* How stable are results over time and across territories?
-* Which model relationships remain robust after accounting for trend and geography?
-* How should predictive uncertainty be represented?
-
-## Next development stages
-
-### 1. Finalize feature selection and modeling data
-
-The next preparation step is to consolidate the exploratory feature screening into a stable modeling dataset.
-
-This includes:
-
-* confirming crop-specific candidate variables;
-* controlling redundancy between related climate indicators;
-* defining admissible production observations;
-* confirming lagged variables;
-* removing information that would introduce leakage;
-* documenting the final feature set.
-
-### 2. Define validation and baselines
-
-Before comparing complex models, the project will establish:
-
-* temporal training and validation splits;
-* appropriate baseline predictions;
-* suitable regression metrics;
-* rules for comparing pooled and crop-specific models;
-* possible checks of territorial generalization.
-
-### 3. Train predictive models
-
-Candidate tabular models will be evaluated after the modeling dataset is frozen.
-
-The initial objective is supervised yield estimation rather than causal inference.
-
-### 4. Evaluate and interpret
-
-Model evaluation will consider:
-
-* predictive accuracy;
-* error distributions;
-* performance stability over time;
-* performance across crops and territories;
-* feature importance;
-* SHAP-based interpretation where appropriate;
-* agronomic plausibility of the relationships identified.
-
-### 5. Communicate results
-
-The final stages will consolidate:
-
-* methodology;
-* model comparisons;
-* limitations;
-* interpretability findings;
-* visualizations;
-* possible decision-support implications.
-
-## Running the current repository
 
 ### Main dependencies
 
-The notebooks currently use packages including:
+The exact imports vary by notebook, but the current workflows use packages including:
 
 ```text
 pandas
@@ -376,27 +345,37 @@ scipy
 statsmodels
 matplotlib
 seaborn
+scikit-learn
+catboost
+python-dotenv
+tabpfn-client
 google-cloud-bigquery
 google-cloud-storage
 gcsfs
 jupyter
 ```
 
-The exact imports vary by notebook.
+A formal dependency file has not yet been added, so the repository is not yet fully reproducible from a clean environment without inspecting notebook imports.
 
-A formal dependency or environment file has not yet been added.
+### Google Cloud authentication
 
-### Authentication
-
-Authenticate locally using Google Cloud Application Default Credentials:
+For notebooks that read from Google Cloud, authenticate locally with Application Default Credentials:
 
 ```bash
 gcloud auth application-default login
 ```
 
-The authenticated account must have permission to access the required Google Cloud Storage objects and BigQuery tables.
+The authenticated account must have permission to read the required Cloud Storage objects and BigQuery tables.
 
-### Suggested reading order
+### TabPFN authentication
+
+The modelling notebook uses the TabPFN client for the current foundation-model experiments.
+
+The access token should be stored locally in environment configuration and **must never be committed to Git**.
+
+## Suggested reading order
+
+For a complete view of the current project:
 
 ```text
 1. notebooks/ETL_Climate_Example.ipynb
@@ -405,30 +384,31 @@ The authenticated account must have permission to access the required Google Clo
 4. notebooks/ETL_Production_Data.ipynb
 5. src/eda_utils.py
 6. notebooks/EDA_AgriClimate_Intelligence.ipynb
+7. src/modelling_utils.py
+8. notebooks/ML_Quantile_Modelling.ipynb
 ```
 
-The two ETL workflows are logically independent. Their curated outputs are combined during the analytical and data-preparation stages of the EDA.
+The ETL workflows produce the curated inputs. The EDA integrates and interprets them, engineers the crop-season representation, and prepares the modelling table. The modelling notebook then performs chronological model development and model selection.
 
 ## Reproducibility and known limitations
 
-The repository remains under active development.
+The repository is still evolving. Current limitations include:
 
-Current limitations include:
-
-* no formal dependency or environment file;
-* no automated test suite;
-* no continuous-integration workflow;
-* some configuration remains inside notebooks;
-* the project is not packaged as an installable Python package;
-* raw datasets are not distributed through the repository;
-* Google Cloud access is required for the default execution path;
-* the final modeling dataset has not yet been frozen;
-* no predictive model or validated performance result is yet available;
-* exploratory associations should not be interpreted automatically as causal relationships.
+- no formal dependency or environment file;
+- no automated test suite;
+- no continuous-integration workflow;
+- some configuration remains inside notebooks;
+- the project is not packaged as an installable Python package;
+- raw and generated analytical datasets are not distributed through the repository;
+- Google Cloud access is required for the default ETL/EDA cloud path;
+- TabPFN experiments require separate authenticated API access;
+- the final crop-specific model choices are not yet frozen;
+- the 2019–2022 final test has not yet been evaluated;
+- predictive relationships should not automatically be interpreted as causal.
 
 ## Collaboration
 
-The `main` branch is protected. Contributors should work on a dedicated branch and open a pull request for review.
+The `main` branch is protected. Changes should be developed on a dedicated branch and merged through a pull request.
 
 Example:
 
@@ -439,21 +419,15 @@ git commit -m "Describe the change"
 git push -u origin feature/descriptive-name
 ```
 
-Methodological changes should clearly state:
+Methodological changes should state clearly:
 
-* what definition or transformation changed;
-* why it changed;
-* which outputs are affected;
-* whether downstream datasets or notebooks must be regenerated.
+- what definition, feature, model, or transformation changed;
+- why it changed;
+- which outputs are affected;
+- whether downstream datasets or notebooks must be regenerated.
 
 ## Academic context
 
-This repository supports the Capstone Project:
+This repository supports the Capstone Project developed within the **Executive Master in Data Science at Rome Business School**.
 
-**Data Driven Analysis for Climate Smart Agriculture: Strategy, Operational Resilience, and Agricultural Yield Analysis in a Changing Climate**
-
-The project is associated with the Executive Master in Data Science at Rome Business School.
-
-## License
-
-No open-source license is currently included. Public visibility alone does not grant explicit reuse, redistribution, or modification rights.
+Its primary purpose is to document the technical workflow, methodological decisions, intermediate evidence, and final modelling process in a reproducible and transparent way.
