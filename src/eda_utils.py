@@ -53,13 +53,14 @@ TEAL = plot_palette[1]
 DARK = plot_palette[2]
 GRAY_MED = plot_palette[3]
 GRAY_LIGHT = plot_palette[4]
+TEAL_LIGHT = "#8FB0B0"
 
 # Diverging colormap built from the palette: teal for the negative side, a light
 # neutral in the middle and gold for the positive side. It is centered on zero,
 # so it is the natural choice for correlation heatmaps and signed values.
 diverging_cmap = LinearSegmentedColormap.from_list(
     "gold_teal_diverging",
-    [TEAL, "#8FB0B0", "#F2F2F2", "#E8CE86", GOLD],
+    [TEAL, TEAL_LIGHT, "#F2F2F2", "#E8CE86", GOLD],
     N=256
 )
 
