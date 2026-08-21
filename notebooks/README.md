@@ -1,20 +1,22 @@
 # Notebooks
 
-This directory contains the executable workflows used to inspect, transform, validate, integrate, and analyse the project data.
+This directory contains the executable workflows used to inspect, transform, validate, analyse, engineer, and model the project data.
 
-> [!NOTE]
-> The notebook collection is still evolving.
+> **Status**
 >
-> The two ETL workflows are implemented. The EDA notebook now extends beyond descriptive analysis into crop-season reconstruction, feature engineering, dataset integration, and climate–yield feature screening. Predictive modeling has not yet been implemented.
+> The notebook collection is still evolving. The two ETL pipelines are implemented, the EDA has reached the modelling hand-off stage, and `ML_Quantile_Modelling.ipynb` is now the main work-in-progress notebook.
+>
+> The modelling workflow has **not yet evaluated the 2019–2022 final test period**.
 
 ## Current contents
 
-| Notebook                             | Current role                                                                            | Main input                                                       | Current output                                                                                             | Status      |
-| ------------------------------------ | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------- |
-| `ETL_Climate_Example.ipynb`          | Demonstrates the climate transformation on one source province                          | One compressed provincial climate file from Google Cloud Storage | Validation outputs and one monthly provincial example                                                      | Implemented |
-| `ETL_Climate_Data.ipynb`             | Runs the climate transformation across all mapped production areas                      | Provincial climate source files                                  | Consolidated monthly climate dataset                                                                       | Implemented |
-| `ETL_Production_Data.ipynb`          | Harmonizes and validates agricultural-production data                                   | Production source from Google Cloud Storage                      | Province–year–crop production panel                                                                        | Implemented |
-| `EDA_AgriClimate_Intelligence.ipynb` | Performs exploratory analysis and constructs the analytical dataset for future modeling | Curated climate and production tables                            | Diagnostics, engineered crop-phase features, integrated observations, feature rankings, and visualizations | In progress |
+| Notebook | Current role | Main input | Main output | Status |
+| --- | --- | --- | --- | --- |
+| `ETL_Climate_Example.ipynb` | Demonstrates and validates the climate transformation on one source province | One compressed provincial climate file from Google Cloud Storage | Intermediate diagnostics and one monthly provincial example | Implemented |
+| `ETL_Climate_Data.ipynb` | Runs the climate transformation across all mapped production areas | 107 compressed provincial climate files | Consolidated monthly climate dataset | Implemented |
+| `ETL_Production_Data.ipynb` | Harmonizes and validates agricultural-production data | Production source from Google Cloud Storage | Province–year–crop production dataset | Implemented |
+| `EDA_AgriClimate_Intelligence.ipynb` | Integrates the curated data, performs the main EDA, reconstructs crop-season information, and prepares the modelling representation | BigQuery curated tables or optional local CSV exports | Diagnostics, visualizations, engineered predictors, analytical findings, modelling dataset | Advanced |
+| `ML_Quantile_Modelling.ipynb` | Develops and compares crop-specific quantile models under chronological validation | `data/modelling_data.csv` | Model comparisons, outer-validation results, temporal robustness diagnostics | **WIP** |
 
 ## Relationship between the notebooks
 
@@ -28,22 +30,19 @@ src/province_transformation.py
         ▼
 ETL_Climate_Data.ipynb ─────────────┐
                                     │
-                                    ├──► curated BigQuery tables
-                                    │             │
-ETL_Production_Data.ipynb ──────────┘             ▼
-                                  EDA_AgriClimate_Intelligence.ipynb
-                                                   │
-                                                   ├──► data understanding
-                                                   ├──► crop-season reconstruction
-                                                   ├──► phase-based feature engineering
-                                                   ├──► climate–production integration
-                                                   └──► feature screening
-                                                               │
-                                                               ▼
-                                                       future modeling
+                                    ├──► curated climate + production data
+                                    │                  │
+ETL_Production_Data.ipynb ──────────┘                  ▼
+                                      EDA_AgriClimate_Intelligence.ipynb
+                                                        │
+                                                        │ crop-season features
+                                                        │ + modelling table
+                                                        ▼
+                                           ML_Quantile_Modelling.ipynb
+                                                        │
+                                                        ▼
+                                         final model selection still open
 ```
-
-The two ETL notebooks produce the climate and production datasets independently. Their outputs are subsequently combined inside the EDA workflow after the crop-season climate features have been constructed.
 
 ## Recommended reading order
 
@@ -52,62 +51,72 @@ The two ETL notebooks produce the climate and production datasets independently.
 2. ETL_Climate_Data.ipynb
 3. ETL_Production_Data.ipynb
 4. EDA_AgriClimate_Intelligence.ipynb
+5. ML_Quantile_Modelling.ipynb
 ```
 
 For code-level understanding:
 
-* read `src/province_transformation.py` together with the climate ETL;
-* read `src/eda_utils.py` before the EDA notebook.
+- read `src/province_transformation.py` after the climate example;
+- read `src/eda_utils.py` before the EDA;
+- read `src/modelling_utils.py` before the modelling notebook.
+
+---
 
 ## `ETL_Climate_Example.ipynb`
 
 ### Purpose
 
-This notebook applies the climate workflow to a single provincial source file so that the transformation can be inspected before executing it across all source areas.
+This notebook applies the climate workflow to a single provincial file so that the complete transformation can be inspected before running it across all source areas.
 
 ### Current operations
 
-* configure project and cloud paths;
-* read one compressed CSV directly from Google Cloud Storage;
-* inspect the raw schema and sample observations;
-* validate dates, numerical fields, nulls, duplicates, and grid consistency;
-* derive daily province-level indicators;
-* aggregate them to month;
-* inspect intermediate and final outputs.
+The notebook:
+
+- configures project and cloud paths;
+- reads one compressed CSV from Google Cloud Storage;
+- inspects the raw schema and sample observations;
+- validates dates, numerical fields, nulls, duplicate keys, and grid consistency;
+- checks and corrects inconsistent temperature ordering where possible;
+- derives daily province-level indicators;
+- aggregates them to month;
+- inspects intermediate and final outputs.
 
 ### Appropriate use
 
 Use this notebook to:
 
-* understand the climate pipeline;
-* test source-data changes;
-* investigate a problematic province;
-* validate changes to feature definitions;
-* check a transformation before running the full batch.
+- understand the climate pipeline;
+- test source-data changes;
+- investigate a problematic province;
+- validate changes to feature definitions;
+- check a transformation before running the national batch.
 
-Reusable transformation changes should normally be implemented in `src/province_transformation.py`.
+Reusable transformation logic should be implemented in `src/province_transformation.py`, not only in notebook cells.
+
+---
 
 ## `ETL_Climate_Data.ipynb`
 
 ### Purpose
 
-This notebook orchestrates the complete climate ETL.
+This notebook orchestrates the complete climate ETL across the mapped Italian production areas.
 
 ### Current operations
 
-* define the mapping between target production areas and climate source files;
-* read gzip-compressed files directly from Google Cloud Storage;
-* combine source territories where required;
-* remove duplicate cell–day observations introduced by overlaps;
-* call the reusable climate transformation for each target area;
-* add province and region labels;
-* concatenate monthly outputs;
-* validate the consolidated dataset;
-* export the curated climate table.
+The workflow:
+
+- defines the mapping between target production areas and climate source files;
+- reads gzip-compressed files from Cloud Storage;
+- concatenates multiple source territories where required;
+- removes duplicate cell–day observations introduced by overlap;
+- applies the reusable provincial transformation;
+- adds province and region labels;
+- concatenates all monthly outputs;
+- validates and exports the consolidated dataset.
 
 ### Territorial mapping
 
-The notebook retains the mapping between:
+The workflow maintains a mapping between:
 
 ```text
 territorial code
@@ -116,33 +125,35 @@ final production-area label
 region
 ```
 
-This is required because the climate and production sources do not always use directly compatible territorial definitions.
+This is necessary because the climate and production sources do not always use identical historical administrative boundaries.
 
-### Current status
+### Status
 
-The complete workflow has been implemented for the mapped areas.
+The notebook has been executed across all mapped areas and represents the current complete climate batch workflow.
 
-Its output should nevertheless remain versioned and reproducible, because changes to thresholds, event definitions, source mappings, or aggregation rules can affect downstream analytical results.
+---
 
 ## `ETL_Production_Data.ipynb`
 
 ### Purpose
 
-This notebook converts the agricultural-production source into a harmonized panel suitable for integration with the climate data.
+This notebook converts the agricultural source into a harmonized structure that can be integrated with climate information.
 
 ### Current operations
 
-* read the source from Google Cloud Storage;
-* inspect variables and source structure;
-* retain the required crop, year, territorial, area, production, and yield fields;
-* analyse absent observations and structural zeroes;
-* harmonize territorial definitions;
-* aggregate source territories where required;
-* calculate yield from total production and cultivated area;
-* preserve provenance and quality information;
-* reshape the data to long format;
-* validate the final key;
-* export the curated production table.
+The workflow:
+
+- reads the production source from Google Cloud Storage;
+- inspects variables and source structure;
+- retains the required crop, year, territory, area, production, and yield information;
+- distinguishes missing observations from structural zeroes;
+- harmonizes territorial definitions;
+- reconstructs or aggregates selected areas when required;
+- recalculates yield from total production and cultivated area where appropriate;
+- preserves provenance and quality information;
+- reshapes the data to long format;
+- validates the final observation key;
+- exports the curated production dataset.
 
 ### Observation unit
 
@@ -163,192 +174,272 @@ yield
 
 ### Quality information
 
-The `q_*` fields retain information concerning, among other aspects:
+Dedicated `q_*` fields retain information about:
 
-* territorial coverage;
-* source regions used;
-* missing source regions;
-* structural zeroes;
-* source or calculation status;
-* area–production–yield coherence;
-* reconstructed territorial units.
+- territorial coverage;
+- source completeness;
+- structural zeroes;
+- calculation or reconstruction status;
+- area–production–yield coherence;
+- reconstructed territorial units.
 
-These fields remain relevant when deciding which observations can enter the final modeling dataset.
+These fields are kept so that data-quality assumptions remain visible during later analysis.
+
+---
 
 ## `EDA_AgriClimate_Intelligence.ipynb`
 
 ### Purpose
 
-This notebook performs the main exploratory analysis and progressively transforms the curated climate and production datasets into observations suitable for predictive modeling.
+This notebook is the main Data Understanding and feature-engineering workflow.
 
-It currently combines **Data Understanding** and **Data Preparation** responsibilities.
+It connects the curated climate and production datasets, examines their analytical limitations, reconstructs climate information around the agricultural cycle, and prepares the representation used by the modelling notebook.
 
-### Current data access
+### Data access
 
-The default execution path reads the curated BigQuery tables:
+The default cloud path uses:
 
 ```text
 agriclimate-intelligence.curated.climate_full_dataset_v1
 agriclimate-intelligence.curated.production_full_dataset_v1
 ```
 
-Optional local CSV files can be used when available.
+Optional local CSV copies can also be used when available.
 
-### 1. Data structure and quality
+### Current analytical coverage
 
-The first part of the notebook covers:
+The notebook currently includes:
 
-* initial inspection of both curated datasets;
-* structural and type checks;
-* internal-consistency checks;
-* temporal and territorial coverage;
-* absent province–crop–year combinations;
-* production-data quality indicators;
-* univariate analysis of production and climate variables.
+- initial structure and type checks;
+- internal-consistency checks;
+- temporal and territorial coverage;
+- missing and absent production observations;
+- review of quality flags;
+- univariate exploration of production and climate variables;
+- yield distributions;
+- temporal yield patterns;
+- macro-regional comparisons;
+- robust long-term trend estimation;
+- partial-autocorrelation summaries;
+- altitude analysis;
+- crop-calendar and crop-phase reconstruction;
+- phase-level environmental summaries;
+- bivariate analysis between yield and engineered predictors;
+- crop-specific correlation rankings;
+- selected follow-up visualizations;
+- preparation of the modelling dataset.
 
-The objective is to understand what information is available and which limitations must be retained during subsequent modeling.
+### Role in the project
 
-### 2. Agricultural yield analysis
+The EDA is not only descriptive. It also provides the methodological bridge between the curated monthly data and the annual supervised-learning problem.
 
-The notebook examines:
+The transformations and observations developed here determine:
 
-* yield distributions by crop;
-* temporal yield patterns;
-* differences between territories and broader geographical areas;
-* long-term province–crop trends;
-* partial autocorrelation within independent yield series.
+- which crops proceed to modelling;
+- how the agricultural season is represented;
+- which climate periods are aggregated;
+- which predictors are plausible candidates;
+- how historical yield information should be treated;
+- which data-quality issues must remain visible.
 
-Long-term trends are estimated using **Theil–Sen slopes**, which reduce sensitivity to isolated anomalous years.
+The notebook should therefore be read before the modelling workflow.
 
-The **PACF** analysis evaluates whether previous yield values may contain additional predictive information without concatenating independent provincial series.
+### Output boundary
 
-### 3. Crop-season reconstruction
+Generated analytical datasets are not committed to the public repository.
 
-Monthly climate observations are aligned with the agricultural year associated with each yield target.
-
-The notebook:
-
-* defines crop-specific agricultural calendars;
-* expands the calendars over the available production years;
-* checks that the required climate months are available;
-* associates each climate month with a crop-development phase.
-
-This moves the analysis from generic calendar-year climate statistics toward agriculturally meaningful time windows.
-
-### 4. Climate feature engineering
-
-Monthly climate indicators are aggregated over the crop-development phases.
-
-Depending on the underlying variable, the resulting features retain information such as:
-
-* average environmental conditions;
-* accumulated quantities;
-* extreme-event frequency;
-* consecutive-event duration;
-* spatial variability;
-* territorial event coverage.
-
-Stable territorial information such as altitude is also retained where relevant.
-
-### 5. Climate and production integration
-
-The engineered climate features are combined with annual production observations at the analytical level:
+The modelling notebook expects the current local modelling export at:
 
 ```text
-province × crop × harvest year
+data/modelling_data.csv
 ```
 
-The integrated dataframe includes the yield target together with climate, territorial, temporal, and selected historical production information.
+---
 
-Lagged production variables are constructed before the final modeling stage so that their potential predictive contribution can be evaluated while preserving the temporal structure of the problem.
+## `ML_Quantile_Modelling.ipynb`
 
-### 6. Bivariate analysis with yield
+### Purpose
 
-The notebook performs crop-specific exploratory screening of the engineered variables.
+This notebook is the current model-development and model-selection workflow for annual crop yield.
 
-This currently includes:
+Three crops are modelled separately:
 
-* correlation-based ranking of candidate features;
-* visual inspection of the strongest relationships;
-* comparison across crops;
-* temporal trends of selected variables;
-* comparisons across geographical macro-areas;
-* distributions across territories;
-* identification of provisional crop-specific feature sets.
+```text
+Durum wheat
+Soft wheat
+Grain maize
+```
 
-The rankings are used as exploratory guidance rather than as an automatic feature-selection rule.
+The notebook is explicitly **work in progress** and currently ends before final test evaluation.
 
-A high correlation does not by itself demonstrate that a variable should enter the final model, while weaker marginal relationships may still contain useful information in a multivariate setting.
+### Modelling objective
 
-### 7. Environmental patterns across crop phases
+The workflow uses quantile regression to estimate three conditional yield quantiles:
 
-For selected environmental variables, the notebook compares the different crop-development phases through:
+```text
+Q1 = 0.25
+Q2 = 0.50
+Q3 = 0.75
+```
 
-* distribution plots across province–year observations;
-* yearly median trends;
-* crop-specific comparisons.
+Q2, the conditional median, is the primary model-selection objective.
 
-This helps identify whether environmental conditions and their variability differ systematically across agronomic phases before the modeling stage.
+Performance is evaluated with pinball loss.
 
-### Current boundary
+### Current modelling data
 
-The EDA now provides the analytical foundation required for modeling, but the feature set is not yet final.
+After rows without an observed target are removed, the modelling workflow uses:
 
-The remaining preparation work mainly concerns:
+```text
+7,576 observations
+4 historical predictors
+192 crop-phase climate predictors
+196 SFS candidate predictors
+```
 
-* consolidating crop-specific candidate features;
-* controlling redundancy among correlated climate indicators;
-* confirming admissible production observations;
-* deciding which lagged variables to retain;
-* checking potential data leakage;
-* freezing the final modeling dataset.
+Current-year `area`, `production`, and `yield` are not used as predictors.
 
-The notebook does **not** yet contain:
+### Temporal validation design
 
-* formal train/validation/test splitting;
-* predictive baselines;
-* machine-learning training;
-* hyperparameter tuning;
-* final model comparison;
-* SHAP or other model-level interpretation;
-* final predictive-performance results.
+The chronological split is fixed before model comparison.
+
+#### Development folds
+
+```text
+train through 2006 → validate on 2007–2009
+train through 2009 → validate on 2010–2012
+train through 2012 → validate on 2013–2015
+```
+
+#### Outer validation
+
+```text
+2016–2018
+```
+
+This block is used for the later model-selection comparison.
+
+#### Final test
+
+```text
+2019–2022
+```
+
+The final test remains untouched and is not used for:
+
+- training;
+- feature selection;
+- early stopping;
+- tuning;
+- model-family selection;
+- current model-choice decisions.
+
+### Current experiment sequence
+
+The notebook currently contains:
+
+1. **Historical linear quantile baseline**
+   - four historical yield predictors;
+   - common scaling and quantile-regression pipeline.
+
+2. **Sequential Forward Selection**
+   - performed separately by crop;
+   - Q2 temporal-CV objective;
+   - historical and phase-level climate predictors compete in the same candidate pool;
+   - the expensive original search is not rerun;
+   - selected feature sets are stored explicitly for reproducibility.
+
+3. **Temporal stability analysis**
+   - compares historical and SFS linear specifications fold by fold.
+
+4. **L1-regularized linear quantile regression**
+   - tests whether additional coefficient shrinkage improves the selected linear models.
+
+5. **CatBoost**
+   - conventional nonlinear tabular comparison;
+   - Q2-focused;
+   - early stopping is determined using recent years inside the training window and the model is then refitted on the full training period.
+
+6. **Outer validation**
+   - compares the strongest developed specifications on 2016–2018.
+
+7. **Tabular foundation models / TabPFN**
+   - introduces the modelling paradigm theoretically;
+   - compares TabPFN variants with historical, selected, and broader feature representations;
+   - preserves native missing values where the model supports them.
+
+8. **Temporal robustness checks**
+   - backtests the strongest TabPFN alternatives against the strongest conventional references on earlier chronological folds.
+
+### Current model-selection boundary
+
+The notebook currently ends with:
+
+```text
+Model selection - TO BE CONTINUED
+```
+
+The main unresolved issue is not whether further models can be fitted, but which selection rule should be frozen before accessing the final benchmark.
+
+Current evidence suggests:
+
+- **Durum wheat:** strongest evidence is concentrated around the parsimonious historical linear model.
+- **Grain maize:** TabPFN is competitive with or stronger than the best linear alternative, but the choice depends on whether average temporal robustness or the strongest recent validation result is prioritized.
+- **Soft wheat:** the ranking remains mixed; the historical linear model is stronger on average across the available temporal windows, while TabPFN Full is stronger in part of the later validation evidence.
+
+These are validation-stage findings only.
+
+The **2019–2022 final test must remain untouched until this decision is fixed**.
+
+### TabPFN access
+
+The notebook uses `tabpfn_client`.
+
+Authentication information should be read from a local `.env` file or equivalent environment configuration.
+
+Never commit API tokens or credentials to the repository.
+
+---
 
 ## Cloud authentication
 
-The notebooks use Google Cloud Application Default Credentials.
+The cloud-based notebooks use Google Cloud Application Default Credentials.
 
 ```bash
 gcloud auth application-default login
 ```
 
-The authenticated account must have permission to read the required Google Cloud Storage objects and BigQuery tables.
+The authenticated account must have access to the required Cloud Storage objects and BigQuery tables.
 
-Never place credentials or service-account keys inside notebook cells.
+Never place service-account keys or credentials directly in notebook cells.
 
 ## Local project layout
 
-When local alternatives are used, the expected structure is:
+When locally generated datasets are used, the expected structure is:
 
 ```text
 agriclimate-intelligence/
 ├── data/
+│   └── modelling_data.csv
 ├── notebooks/
 └── src/
 ```
 
-The `data/` directory is not versioned in the public repository.
+The `data/` directory is intentionally not part of the public versioned workflow.
 
 ## Notebook conventions
 
 When editing notebooks:
 
-* maintain a clear top-to-bottom execution order;
-* separate data access from analytical transformations;
-* keep reusable logic in `src/` where appropriate;
-* explain methodological choices in markdown;
-* distinguish observed findings from decisions that are still provisional;
-* do not describe planned work as already implemented;
-* avoid user-specific local paths;
-* never commit credentials;
-* avoid unnecessary large outputs;
-* update this README when the analytical workflow changes materially.
+- maintain a clear top-to-bottom execution order;
+- keep chronological validation explicit;
+- separate data access from reusable analytical logic;
+- move reusable functions to `src/`;
+- explain methodological choices in markdown;
+- distinguish observed evidence from decisions not yet taken;
+- do not describe planned work as already completed;
+- avoid user-specific absolute paths;
+- never commit credentials or API tokens;
+- avoid committing unnecessary large outputs;
+- keep the final test isolated until model selection is frozen;
+- update this README when the role or status of a notebook changes.
