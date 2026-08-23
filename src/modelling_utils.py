@@ -724,7 +724,10 @@ def plot_national_quantile_forecast(
     ax.tick_params(axis="y", colors=GRAY_MED)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
-    ax.legend(frameon=False)
+    ax.legend(
+        loc="upper right",
+        frameon=False,
+    )
 
     fig.tight_layout(pad=2)
     plt.show()
