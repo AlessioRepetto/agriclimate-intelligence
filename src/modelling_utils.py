@@ -43,6 +43,7 @@ __all__ = [
     "add_quantile_limits",
     "aggregate_national_predictions",
     "plot_national_quantile_forecast",
+    "NamedColumnsWrapper",
 ]
 
 
@@ -618,6 +619,7 @@ def plot_national_quantile_forecast(
     crop,
     crop_col="crop",
     year_col="harvest_year",
+    area_label="National",
     figsize=(16, 8),
 ):
     required = [
@@ -703,7 +705,7 @@ def plot_national_quantile_forecast(
     ax.plot(
         plot_data[year_col],
         plot_data["yield_real"],
-        label="Observed national yield",
+        label="Observed yield",
         color=DARK,
         linewidth=1.8,
         marker="o",
@@ -713,7 +715,7 @@ def plot_national_quantile_forecast(
     end_year = int(plot_data[year_col].max())
 
     ax.set_title(
-        f"{crop} - National yield: {start_year} → {end_year}",
+        f"{crop} - {area_label}: observed yield and quantile forecast",
         loc="left",
         fontsize=14,
         fontweight="bold",
@@ -732,3 +734,21 @@ def plot_national_quantile_forecast(
     fig.tight_layout(pad=2)
     plt.show()
     return fig, ax
+
+
+# Restore feature names before sending data to the TabPFN client.
+class NamedColumnsWrapper:
+    def __init__(self, model, feature_names):
+        self.model = model
+        self.feature_names = list(feature_names)
+    def predict(self, X):
+        # shapiq internally converts DataFrames to NumPy arrays.
+        # Rebuild the original DataFrame expected by the fitted TabPFN model.
+        X = pd.DataFrame(
+            np.asarray(X),
+            columns=self.feature_names,
+        )
+        return np.asarray(self.model.predict(X))
+    def __getattr__(self, name):
+        # Preserve access to the attributes of the original TabPFN model.
+        return getattr(self.model, name)
