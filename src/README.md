@@ -2,8 +2,6 @@
 
 This directory contains reusable Python code shared across the ETL, EDA, and modelling notebooks.
 
-The source layer now separates three main responsibilities:
-
 ```text
 src/
 ├── __init__.py
@@ -18,7 +16,7 @@ src/
 | --- | --- | --- |
 | `province_transformation.py` | Validate and transform raw daily gridded climate data into monthly provincial indicators | Climate ETL notebooks |
 | `eda_utils.py` | Shared descriptive-analysis utilities and project plotting style | EDA notebook and modelling plots |
-| `modelling_utils.py` | Reusable quantile-modelling, temporal-validation, feature-selection, CatBoost, post-processing, and aggregation utilities | `ML_Quantile_Modelling.ipynb` |
+| `modelling_utils.py` | Reusable quantile modelling, chronological validation, feature selection, CatBoost, post-processing, national aggregation, and final forecast visualization | `ML_Quantile_Modelling.ipynb` |
 
 `__init__.py` marks the directory as a Python package namespace, although the project is not currently distributed as an installable package.
 
@@ -62,13 +60,13 @@ The module checks:
 - missing observations;
 - valid date conversion;
 - numeric conversion;
-- duplicate `IDCELL`–`DAY` keys;
+- duplicate `IDCELL`-`DAY` keys;
 - stability of geographical attributes for each cell;
 - consistency of the grid through time;
 - invalid negative values in non-negative variables;
 - logical ordering of minimum, average, and maximum temperatures.
 
-Where possible, inconsistent temperature ordering is corrected by reordering the three temperature values before the final validation.
+Where possible, inconsistent temperature ordering is corrected by reordering the three temperature values before final validation.
 
 ### Historical thresholds
 
@@ -110,7 +108,7 @@ This distinguishes localized extremes from events affecting a meaningful share o
 The workflow combines two levels:
 
 ```text
-cell–day observations
+cell-day observations
 ├── direct monthly aggregation
 └── daily provincial state
       └── monthly aggregation
@@ -213,17 +211,15 @@ The utilities include support for:
 - univariate analysis of continuous variables;
 - univariate analysis of discrete variables;
 - categorical distributions;
-- numeric–numeric relationships;
-- numeric–categorical comparisons;
+- numeric-numeric relationships;
+- numeric-categorical comparisons;
 - category-conditioned numeric relationships;
 - temporal exploration;
-- reusable axes so plots can be composed in notebook layouts.
-
-The functions are intended for interactive notebook use and generally combine visual output with short descriptive summaries.
+- reusable axes for notebook composition.
 
 ### Design principle
 
-Project colors and plotting conventions should be maintained here rather than redefined independently in each notebook or in `modelling_utils.py`.
+Project colors and plotting conventions should be maintained here rather than redefined independently in notebooks or `modelling_utils.py`.
 
 This keeps EDA and modelling visualizations consistent.
 
@@ -235,13 +231,13 @@ This keeps EDA and modelling visualizations consistent.
 
 This module contains reusable logic extracted from the quantile-modelling notebook.
 
-It supports the current crop-specific model-development workflow while keeping the notebook focused on experiment order, model comparison, and interpretation.
+It supports the crop-specific development, validation, post-processing, and final presentation workflow while keeping the notebook focused on experiment order and interpretation.
 
-The module imports the plotting style and semantic color aliases directly from `eda_utils.py`, so there is only one visual source of truth.
+The module imports plotting style and semantic color aliases directly from `eda_utils.py`, maintaining a single source of truth for project visualization.
 
-### Main exported utilities
+### Public utilities
 
-The current public functions include:
+The current exported functions are:
 
 ```text
 pinball
@@ -270,11 +266,11 @@ plot_national_quantile_forecast
 The module provides:
 
 - pinball-loss evaluation;
-- standardized `QuantileRegressor` pipelines;
-- fold-by-fold temporal evaluation;
+- standardized unregularized `QuantileRegressor` pipelines;
+- fold-by-fold chronological evaluation;
 - aggregate train and temporal-CV scoring.
 
-The unregularized linear specification uses:
+The development-stage linear specification uses:
 
 ```text
 StandardScaler
@@ -282,7 +278,7 @@ StandardScaler
 QuantileRegressor
 ```
 
-Scaling stays inside the pipeline so that it is refitted independently inside each chronological fold.
+Scaling remains inside the pipeline so that it is refitted independently inside every temporal fold.
 
 ### Historical yield features
 
@@ -295,7 +291,7 @@ crop × province
 crop × region
 ```
 
-This avoids using future target observations when constructing historical predictors.
+This prevents future target observations from entering historical predictors.
 
 ### Temporal validation
 
@@ -303,25 +299,25 @@ This avoids using future target observations when constructing historical predic
 
 `temporal_cv_scores()` evaluates each requested quantile separately within the defined chronological folds.
 
-The central assumption is that every validation block must occur strictly after the observations used to fit its model.
+The key assumption is that every validation block must occur strictly after the observations used to fit its model.
 
 ### Sequential Forward Selection
 
 `fit_sfs()` runs forward `SequentialFeatureSelector` using:
 
 - Q2 pinball loss as the scoring objective;
-- the explicit chronological folds;
-- the same linear quantile pipeline used for later evaluation.
+- explicit chronological folds;
+- the same linear quantile pipeline used for subsequent evaluation.
 
 The resulting feature subset is model-specific and should not be interpreted as the only informative set for nonlinear estimators.
 
-`selected_feature_table()` provides a compact readable summary of the selected predictors and distinguishes historical from climate variables.
+`selected_feature_table()` creates a readable summary that distinguishes historical and climate predictors and reports the crop-phase suffix for engineered climate variables.
 
 ### Native missing-value feature mapping
 
-`native_feature_names()` converts zero-filled linear-model feature names back to their native missing-value versions when a downstream model can consume numerical `NaN` values directly.
+`native_feature_names()` maps zero-filled historical feature names back to their native missing-value versions when downstream estimators can consume numerical `NaN` values directly.
 
-This allows CatBoost and TabPFN experiments to preserve missingness information instead of inheriting the imputation required by the linear pipeline.
+This is used to avoid unnecessarily transferring linear-model imputation choices to CatBoost and TabPFN.
 
 ### L1-regularized quantile regression
 
@@ -329,14 +325,14 @@ The module contains utilities to:
 
 - build standardized L1 quantile-regression pipelines;
 - calculate Q2 fold-level losses for candidate `alpha` values;
-- choose a regularization strength within a tolerance of the best validation result;
-- evaluate the selected regularized specification on train and temporal CV.
+- select the strongest regularization level whose loss is effectively tied for best;
+- evaluate the selected regularized model on train and temporal CV.
 
 ### CatBoost Q2
 
 The CatBoost helpers implement the current conservative Q2 workflow.
 
-`make_catboost_q2_model()` creates the base quantile model with:
+`make_catboost_q2_model()` creates the base model with:
 
 ```text
 loss_function = Quantile:alpha=0.5
@@ -347,47 +343,62 @@ allow_writing_files = False
 
 `fit_catboost_q2()`:
 
-1. uses the most recent years inside the training window as an internal early-stopping block;
+1. reserves the most recent years inside the current training window for early stopping;
 2. determines the best tree count;
-3. refits a fresh model on the complete training window using that tree count.
+3. fits a fresh model on the complete training window using that tree count.
 
-This prevents the external validation period from influencing early stopping while still allowing all available training observations to contribute to the final fit.
+The external validation period therefore never influences early stopping.
 
 ### Quantile post-processing
 
-`correction_function()` and `add_quantile_limits()` enforce the expected ordering:
+`correction_function()` enforces the expected ordering between consecutive quantiles.
 
-```text
-Q1 <= Q2 <= Q3
-```
+`add_quantile_limits()` applies the final Q1-Q2-Q3 correction and derives:
 
-and derive:
-
-- corrected conditional quantiles;
+- corrected median;
+- corrected upper quartile;
 - predicted interquartile range;
-- Tukey-style lower and upper limits.
+- non-negative lower Tukey-style limit;
+- upper Tukey-style limit.
 
-These utilities are intended for later probabilistic interpretation and anomaly-style diagnostics rather than for changing the underlying model-selection score.
+The final modelling notebook uses this stage only for coherent distributional outputs and diagnostics.
+
+Raw model predictions remain the basis of the official final-test pinball losses.
 
 ### National aggregation
 
-`aggregate_national_predictions()` converts province-level predicted yields into implied production, aggregates production and cultivated area nationally, and only then reconstructs national yield.
+`aggregate_national_predictions()` converts province-level predicted yields into implied production, aggregates predicted and observed production nationally, and reconstructs national yields from:
 
-This is preferable to directly averaging provincial yields because provinces have different cultivated areas.
+```text
+total production / total cultivated area
+```
 
-The function also derives national observed and predicted yield series and flags observations outside the predicted Tukey-style limits.
+The function processes:
+
+- observed yield;
+- Q1;
+- corrected Q2;
+- corrected Q3;
+- lower limit;
+- upper limit.
+
+It also flags observed national yields falling outside the aggregate conditional limits.
+
+The resulting national quantile series are area-weighted aggregates of the province-level forecasts.
 
 ### National forecast visualization
 
-`plot_national_quantile_forecast()` draws, for one crop:
+`plot_national_quantile_forecast()` visualizes, for one crop:
 
 - observed national yield;
 - predicted median;
 - interquartile band;
 - lower and upper outlier limits;
-- flagged low and high observations.
+- low and high outlier observations.
 
-The function reuses the project plotting style from `eda_utils.py`.
+The function reuses the project plotting style defined in `eda_utils.py`.
+
+Its legend is fixed in the **upper-right corner** of the plotting area to keep placement consistent across crops.
 
 ---
 
@@ -426,6 +437,7 @@ When extending `src/`:
 - keep experiment-specific control flow in the notebook;
 - avoid duplicating plotting colors or style definitions outside `eda_utils.py`;
 - keep temporal-validation logic explicit and leakage-safe;
+- keep final-test logic separate from model-selection logic;
 - prefer small functions with clear inputs and outputs;
 - document methodological changes that can alter downstream results;
 - preserve reproducibility through deterministic seeds where applicable;
