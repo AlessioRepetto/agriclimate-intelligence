@@ -1,6 +1,6 @@
 # Source Code
 
-This directory contains reusable Python code shared across the ETL, EDA, and modelling notebooks.
+This directory contains the reusable Python utilities used by the AgriClimate Intelligence notebooks.
 
 ```text
 src/
@@ -10,29 +10,31 @@ src/
 └── province_transformation.py
 ```
 
+The notebooks retain experiment order, narrative and domain interpretation, while functions that are reusable or would otherwise obscure the analysis are kept here.
+
 ## Module overview
 
-| Module | Main responsibility | Main consumers |
+| Module | Responsibility | Used by |
 | --- | --- | --- |
-| `province_transformation.py` | Validate and transform raw daily gridded climate data into monthly provincial indicators | Climate ETL notebooks |
-| `eda_utils.py` | Shared descriptive-analysis utilities and project plotting style | EDA notebook and modelling plots |
-| `modelling_utils.py` | Reusable quantile modelling, chronological validation, feature selection, CatBoost, post-processing, national aggregation, and final forecast visualization | `ML_Quantile_Modelling.ipynb` |
+| `province_transformation.py` | Validate and transform daily gridded climate observations into monthly provincial indicators | Climate ETL notebooks |
+| `eda_utils.py` | Shared exploratory-analysis helpers and project plotting style | EDA + modelling |
+| `modelling_utils.py` | Quantile modelling, temporal validation, SFS, CatBoost, post-processing, aggregation and SHAP support | Modelling notebook |
 
-`__init__.py` marks the directory as a Python package namespace, although the project is not currently distributed as an installable package.
+`__init__.py` marks `src` as a Python package namespace, although the repository is not currently distributed as an installable package.
 
 ---
 
-## `province_transformation.py`
+# `province_transformation.py`
 
-### Purpose
+## Purpose
 
-This module contains the main reusable climate transformation.
+This module implements the reusable climate-data transformation used by the ETL workflow.
 
-Its central workflow converts daily gridded observations for one source territory into monthly provincial climate indicators.
+It converts daily gridded observations for one source territory into a monthly provincial representation.
 
-### Expected input
+## Expected source variables
 
-The current transformation expects fields corresponding to:
+The transformation works with fields corresponding to:
 
 ```text
 IDCELL
@@ -50,91 +52,89 @@ ET0
 RADIATION
 ```
 
-### Validation logic
+## Validation
 
 The module checks:
 
-- input object and dataframe emptiness;
 - required columns;
+- empty inputs;
 - duplicate column names;
-- missing observations;
-- valid date conversion;
+- missing values;
+- date conversion;
 - numeric conversion;
-- duplicate `IDCELL`-`DAY` keys;
-- stability of geographical attributes for each cell;
+- duplicate `IDCELL`–`DAY` keys;
+- stability of cell geography;
 - consistency of the grid through time;
-- invalid negative values in non-negative variables;
-- logical ordering of minimum, average, and maximum temperatures.
+- invalid negative values where variables must be non-negative;
+- logical ordering of minimum, average and maximum temperature.
 
-Where possible, inconsistent temperature ordering is corrected by reordering the three temperature values before final validation.
+Where possible, inconsistent temperature values are repaired by reordering the three temperature measurements before final validation.
 
-### Historical thresholds
+## Climate-event thresholds
 
-The transformation derives month-specific historical thresholds from the available reference-period observations.
+The transformation combines relative historical thresholds and absolute agronomic/meteorological definitions.
 
-Current relative event definitions include thresholds for:
+Derived events include examples such as:
 
-- high maximum temperature;
-- low minimum temperature;
+- unusually high maximum temperature;
+- unusually low minimum temperature;
 - heavy positive precipitation;
-- high wind speed.
-
-These are complemented by absolute event definitions such as:
-
+- high wind;
 - frost;
-- high heat;
-- very high heat;
+- high and very high heat;
 - wet cells;
-- heavy precipitation.
+- heavy rainfall.
 
-Threshold definitions are methodological choices. Changes to them can alter the complete curated climate dataset and should therefore be documented explicitly.
+Threshold definitions are part of the project methodology and should not be changed casually, because they affect all downstream climate features.
 
-### Spatial logic
+## Spatial aggregation
 
-The transformation does not reduce each province directly to one raw mean.
+Daily provincial indicators preserve the spatial nature of the gridded source rather than collapsing each day immediately to one average.
 
-For each day it derives indicators describing:
+Depending on the variable, the transformation can retain:
 
-- average conditions across cells;
+- territorial mean;
 - local maximum or minimum;
 - spatial standard deviation;
 - proportion of cells affected;
-- whether an event exceeds the minimum territorial-coverage rule.
+- whether a sufficient share of the territory experienced an event.
 
-This distinguishes localized extremes from events affecting a meaningful share of the province.
+This distinguishes localized extremes from events affecting a meaningful part of a province.
 
-### Temporal logic
+## Temporal aggregation
 
-The workflow combines two levels:
+The workflow combines:
 
 ```text
-cell-day observations
-├── direct monthly aggregation
-└── daily provincial state
-      └── monthly aggregation
+cell × day observations
+        │
+        ├── direct monthly statistics
+        │
+        └── daily provincial event states
+                │
+                ▼
+           monthly indicators
 ```
 
-The final output contains indicators related to:
+The final features cover:
 
-- temperature averages and local extremes;
-- spatial temperature variability;
-- precipitation intensity and totals;
-- wet-day frequency;
-- local precipitation maxima;
-- wind conditions;
+- temperature;
+- precipitation;
+- wind;
 - vapour pressure;
-- reference evapotranspiration;
-- solar radiation;
+- evapotranspiration;
+- radiation;
+- spatial variability;
 - event frequency;
-- territorial shares affected;
-- longest consecutive event sequences;
-- static altitude characteristics.
+- affected territorial share;
+- consecutive-event duration;
+- altitude.
 
-### Altitude features
+## Altitude
 
 Altitude is calculated from unique grid cells rather than repeated daily rows.
 
-Current fields include:
+Current static features include:
 
 ```text
 ALTITUDE_MEAN
@@ -144,100 +144,83 @@ ALTITUDE_MAX
 ALTITUDE_RANGE
 ```
 
-### Current use
+## Usage
 
-The module is:
+The transformation is demonstrated in:
 
-- demonstrated incrementally in `notebooks/ETL_Climate_Example.ipynb`;
-- executed across all mapped target areas by `notebooks/ETL_Climate_Data.ipynb`.
+```text
+notebooks/ETL_Climate_Example.ipynb
+```
 
-Reusable changes to climate transformation logic should be implemented here rather than duplicated across notebooks.
+and executed across the full source mapping in:
+
+```text
+notebooks/ETL_Climate_Data.ipynb
+```
 
 ---
 
-## `eda_utils.py`
+# `eda_utils.py`
 
-### Purpose
+## Purpose
 
-This module provides reusable utilities for consistent exploratory analysis and visualization.
+This module centralizes reusable exploratory-analysis helpers and the visual identity shared across the project.
 
-It covers descriptive univariate, bivariate, multivariate, and temporal exploration without embedding project-specific modelling decisions.
+## Plot style
 
-### Shared visual identity
-
-The project plotting identity is defined centrally in this module.
-
-The palette includes:
-
-- gold;
-- teal;
-- dark gray;
-- medium and light neutral grays;
-- supporting darker and lighter variants.
-
-Semantic aliases such as:
+The project palette and semantic aliases are defined here, including:
 
 ```text
 GOLD
 TEAL
+TEAL_LIGHT
 DARK
 GRAY_MED
 GRAY_LIGHT
 ```
 
-allow downstream plotting code to express visual intent without repeatedly using raw hexadecimal values.
+`set_plot_style()` applies shared conventions such as:
 
-The module also defines shared sequential and diverging colormaps.
-
-`set_plot_style()` applies the project-wide chart conventions, including:
-
-- minimal white background;
-- hidden top and right spines;
-- left-oriented bold titles;
-- consistent font sizes;
+- white background;
+- minimal spines;
+- left-aligned titles;
+- consistent font sizing;
 - frameless legends.
 
-### Current capabilities
+Modelling visualizations import these definitions rather than maintaining a second color system.
 
-The utilities include support for:
+## Main utilities
 
-- required-column validation;
+The module includes helpers for:
+
+- required-column checks;
 - dataframe diagnostics;
 - missing-value summaries;
 - zero-value summaries;
 - frequency tables;
-- readable variable labels;
-- variable-type recognition;
-- univariate analysis of continuous variables;
-- univariate analysis of discrete variables;
+- readable feature labels;
+- continuous-variable exploration;
+- discrete-variable exploration;
 - categorical distributions;
-- numeric-numeric relationships;
-- numeric-categorical comparisons;
-- category-conditioned numeric relationships;
-- temporal exploration;
-- reusable axes for notebook composition.
+- numeric–numeric relationships;
+- numeric–categorical relationships;
+- categorical composition;
+- temporal plots;
+- stacked time-series composition;
+- seasonality heatmaps;
+- reusable axes for notebook layouts.
 
-### Design principle
-
-Project colors and plotting conventions should be maintained here rather than redefined independently in notebooks or `modelling_utils.py`.
-
-This keeps EDA and modelling visualizations consistent.
+The goal is to keep repeated plotting and descriptive logic out of the EDA notebook while preserving transparent notebook-level analysis.
 
 ---
 
-## `modelling_utils.py`
+# `modelling_utils.py`
 
-### Purpose
+## Purpose
 
-This module contains reusable logic extracted from the quantile-modelling notebook.
+This module contains reusable functions supporting the complete quantile-modelling workflow.
 
-It supports the crop-specific development, validation, post-processing, and final presentation workflow while keeping the notebook focused on experiment order and interpretation.
-
-The module imports plotting style and semantic color aliases directly from `eda_utils.py`, maintaining a single source of truth for project visualization.
-
-### Public utilities
-
-The current exported functions are:
+Current public utilities are:
 
 ```text
 pinball
@@ -259,32 +242,34 @@ correction_function
 add_quantile_limits
 aggregate_national_predictions
 plot_national_quantile_forecast
+NamedColumnsWrapper
 ```
 
-### Core quantile modelling
+## Core quantile modelling
 
-The module provides:
+### `pinball()`
 
-- pinball-loss evaluation;
-- standardized unregularized `QuantileRegressor` pipelines;
-- fold-by-fold chronological evaluation;
-- aggregate train and temporal-CV scoring.
+Convenience wrapper around `mean_pinball_loss`.
 
-The development-stage linear specification uses:
+### `make_linear_pipeline()`
+
+Builds the development-stage unregularized linear quantile model:
 
 ```text
 StandardScaler
-    ↓
-QuantileRegressor
+      ↓
+QuantileRegressor(alpha=0)
 ```
 
 Scaling remains inside the pipeline so that it is refitted independently inside every temporal fold.
 
-### Historical yield features
+## Historical features
 
-`rolling_history_median()` derives historical medians using only yield values from previous calendar years.
+### `rolling_history_median()`
 
-It can operate at different grouping levels, for example:
+Calculates a rolling historical median using only yields observed in previous calendar years.
+
+It can be applied at different levels, for example:
 
 ```text
 crop × province
@@ -293,118 +278,168 @@ crop × region
 
 This prevents future target observations from entering historical predictors.
 
-### Temporal validation
+## Chronological validation
 
-`temporal_cv_indices()` converts year-based chronological folds into the positional-index format required by scikit-learn tools.
+### `temporal_cv_indices()`
 
-`temporal_cv_scores()` evaluates each requested quantile separately within the defined chronological folds.
+Converts year-defined chronological folds into positional train/validation indices for scikit-learn tools.
 
-The key assumption is that every validation block must occur strictly after the observations used to fit its model.
+### `temporal_cv_scores()`
 
-### Sequential Forward Selection
+Fits and evaluates each requested quantile independently inside each chronological fold.
 
-`fit_sfs()` runs forward `SequentialFeatureSelector` using:
+### `evaluate_feature_set()`
 
-- Q2 pinball loss as the scoring objective;
-- explicit chronological folds;
-- the same linear quantile pipeline used for subsequent evaluation.
+Produces full-development train losses and mean temporal-CV losses for one feature representation.
 
-The resulting feature subset is model-specific and should not be interpreted as the only informative set for nonlinear estimators.
-
-`selected_feature_table()` creates a readable summary that distinguishes historical and climate predictors and reports the crop-phase suffix for engineered climate variables.
-
-### Native missing-value feature mapping
-
-`native_feature_names()` maps zero-filled historical feature names back to their native missing-value versions when downstream estimators can consume numerical `NaN` values directly.
-
-This is used to avoid unnecessarily transferring linear-model imputation choices to CatBoost and TabPFN.
-
-### L1-regularized quantile regression
-
-The module contains utilities to:
-
-- build standardized L1 quantile-regression pipelines;
-- calculate Q2 fold-level losses for candidate `alpha` values;
-- select the strongest regularization level whose loss is effectively tied for best;
-- evaluate the selected regularized model on train and temporal CV.
-
-### CatBoost Q2
-
-The CatBoost helpers implement the current conservative Q2 workflow.
-
-`make_catboost_q2_model()` creates the base model with:
+The core invariant is:
 
 ```text
-loss_function = Quantile:alpha=0.5
-random_seed = 0
-verbose = False
-allow_writing_files = False
+validation year > every training year
 ```
 
-`fit_catboost_q2()`:
+## Sequential Forward Selection
 
-1. reserves the most recent years inside the current training window for early stopping;
-2. determines the best tree count;
-3. fits a fresh model on the complete training window using that tree count.
+### `fit_sfs()`
 
-The external validation period therefore never influences early stopping.
+Runs forward `SequentialFeatureSelector` using:
 
-### Quantile post-processing
+- Q2 pinball loss;
+- the explicit chronological folds;
+- the standard linear quantile pipeline.
 
-`correction_function()` enforces the expected ordering between consecutive quantiles.
+The selected set is specific to the linear SFS experiment and is not assumed to define the optimal representation for all nonlinear models.
 
-`add_quantile_limits()` applies the final Q1-Q2-Q3 correction and derives:
+### `selected_feature_table()`
 
-- corrected median;
-- corrected upper quartile;
-- predicted interquartile range;
-- non-negative lower Tukey-style limit;
-- upper Tukey-style limit.
-
-The final modelling notebook uses this stage only for coherent distributional outputs and diagnostics.
-
-Raw model predictions remain the basis of the official final-test pinball losses.
-
-### National aggregation
-
-`aggregate_national_predictions()` converts province-level predicted yields into implied production, aggregates predicted and observed production nationally, and reconstructs national yields from:
+Builds a compact summary of selected variables, distinguishing:
 
 ```text
-total production / total cultivated area
+historical
+climate
 ```
 
-The function processes:
+and extracting the crop-phase suffix from engineered climate feature names.
+
+## Native missing values
+
+### `native_feature_names()`
+
+Maps zero-filled historical feature names to their native missing-value equivalents for model families that support numerical `NaN` values directly.
+
+This prevents the imputation strategy required by linear regression from being imposed unnecessarily on CatBoost or TabPFN.
+
+## L1 quantile regression
+
+The module provides helpers to:
+
+- build regularized quantile pipelines;
+- evaluate candidate `alpha` values on chronological folds;
+- choose the strongest effectively tied regularization value;
+- evaluate the selected regularized specification.
+
+This is used as a sensitivity check rather than as a separate unrestricted modelling strategy.
+
+## CatBoost
+
+### `make_catboost_q2_model()`
+
+Creates the common Q2 CatBoost specification with deterministic project settings.
+
+### `fit_catboost_q2()`
+
+Implements leakage-safe early stopping:
+
+1. the most recent years inside the current training window are used to determine tree count;
+2. the external validation period remains untouched;
+3. a fresh model is refitted on the complete training window using the selected number of trees.
+
+## Quantile post-processing
+
+### `correction_function()`
+
+Enforces the expected order between two consecutive quantiles.
+
+### `add_quantile_limits()`
+
+Constructs the final coherent distribution:
+
+```text
+0 ≤ Q1* ≤ Q2* ≤ Q3*
+```
+
+and derives:
+
+```text
+predicted IQR
+lower Tukey-style limit
+upper Tukey-style limit
+```
+
+This post-processing is used only for probabilistic interpretation and diagnostics. Official final-test pinball losses remain based on the raw model outputs.
+
+## Area-weighted aggregation
+
+### `aggregate_national_predictions()`
+
+Transforms province-level yield estimates into implied production:
+
+```text
+predicted yield × cultivated area
+```
+
+and reconstructs aggregate yield from:
+
+```text
+total predicted production / total cultivated area
+```
+
+This procedure is applied consistently to observed yield, Q1, Q2, Q3 and the conditional limits.
+
+Although originally introduced for national aggregation, the same logic is also reused for selected macro-regional areas in the final modelling analysis.
+
+## Forecast visualization
+
+### `plot_national_quantile_forecast()`
+
+Draws an aggregate observed-versus-predicted yield chart containing:
 
 - observed yield;
-- Q1;
-- corrected Q2;
-- corrected Q3;
-- lower limit;
-- upper limit.
-
-It also flags observed national yields falling outside the aggregate conditional limits.
-
-The resulting national quantile series are area-weighted aggregates of the province-level forecasts.
-
-### National forecast visualization
-
-`plot_national_quantile_forecast()` visualizes, for one crop:
-
-- observed national yield;
 - predicted median;
-- interquartile band;
-- lower and upper outlier limits;
-- low and high outlier observations.
+- Q1–Q3 interquartile band;
+- lower and upper Tukey-style limits;
+- flagged low or high outliers.
 
-The function reuses the project plotting style defined in `eda_utils.py`.
+The function accepts an `area_label`, so it is used for both:
 
-Its legend is fixed in the **upper-right corner** of the plotting area to keep placement consistent across crops.
+```text
+National
+selected territorial aggregates
+```
+
+The resulting title follows:
+
+```text
+{crop} - {area_label}: observed yield and quantile forecast
+```
+
+and the legend is kept in the upper-right corner.
+
+## TabPFN / SHAP support
+
+### `NamedColumnsWrapper`
+
+The final TabPFN interpretation uses `shapiq`, which internally passes NumPy arrays to the model, whereas the fitted TabPFN client expects the named DataFrame columns used during training.
+
+`NamedColumnsWrapper` rebuilds that DataFrame before prediction while transparently forwarding other model attributes.
+
+This adapter allows the final TabPFN models to be interpreted with the SHAP/shapiq workflow without changing their trained feature schema.
 
 ---
 
-## Import pattern used by the notebooks
+## Import pattern
 
-The notebooks are expected to run from the `notebooks/` directory and make `src/` available explicitly.
+The notebooks are designed to run from the `notebooks/` directory and explicitly add `src/` to the Python path.
 
 ```python
 from pathlib import Path
@@ -420,25 +455,23 @@ if str(SRC_DIR) not in sys.path:
     sys.path.append(str(SRC_DIR))
 ```
 
-The shared utilities can then be imported with:
+Utilities can then be imported with:
 
 ```python
 from eda_utils import *
 from modelling_utils import *
 ```
 
-The project currently favors transparent notebook execution over packaging the repository as an installable library.
-
 ## Development conventions
 
-When extending `src/`:
+When extending the source layer:
 
-- move logic here when it is reusable or distracts from notebook readability;
-- keep experiment-specific control flow in the notebook;
-- avoid duplicating plotting colors or style definitions outside `eda_utils.py`;
-- keep temporal-validation logic explicit and leakage-safe;
-- keep final-test logic separate from model-selection logic;
-- prefer small functions with clear inputs and outputs;
-- document methodological changes that can alter downstream results;
-- preserve reproducibility through deterministic seeds where applicable;
-- avoid embedding credentials, API tokens, local absolute paths, or private configuration.
+- move genuinely reusable logic out of notebooks;
+- keep experiment order and interpretative narrative in the notebooks;
+- preserve chronological validation and leakage controls;
+- never use final-test results to modify a frozen model specification;
+- maintain plotting style centrally in `eda_utils.py`;
+- prefer small functions with explicit inputs and outputs;
+- use deterministic seeds where applicable;
+- avoid credentials, tokens and user-specific absolute paths;
+- document methodological changes that alter downstream results.
