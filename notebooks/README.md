@@ -1,52 +1,53 @@
 # Notebooks
 
-This directory contains the executable workflows used to inspect, transform, validate, analyse, engineer, and model the project data.
+This directory contains the complete executable analytical workflow for **AgriClimate Intelligence**, from source-data transformation to final crop-yield modelling and interpretation.
 
-> **Status**
->
-> The ETL pipelines are implemented, the EDA has reached the modelling hand-off stage, and `ML_Quantile_Modelling.ipynb` has now progressed through **model selection and final 2019-2022 out-of-time evaluation**.
->
-> The notebook collection is still evolving as the project moves toward final interpretation and communication.
+The main analysis is complete. The notebooks are organized so that the data-engineering logic, exploratory reasoning, feature engineering and model-development decisions remain inspectable rather than being hidden behind a single pipeline.
 
-## Current contents
+## Notebook overview
 
-| Notebook | Current role | Main input | Main output | Status |
-| --- | --- | --- | --- | --- |
-| `ETL_Climate_Example.ipynb` | Demonstrates and validates the climate transformation on one source province | One compressed provincial climate file from Google Cloud Storage | Intermediate diagnostics and one monthly provincial example | Implemented |
-| `ETL_Climate_Data.ipynb` | Runs the climate transformation across all mapped production areas | 107 compressed provincial climate files | Consolidated monthly climate dataset | Implemented |
-| `ETL_Production_Data.ipynb` | Harmonizes and validates agricultural-production data | Production source from Google Cloud Storage | Province-year-crop production dataset | Implemented |
-| `EDA_AgriClimate_Intelligence.ipynb` | Integrates the curated data, performs the main EDA, reconstructs crop-season information, and prepares the modelling representation | BigQuery curated tables or optional local CSV exports | Diagnostics, visualizations, engineered predictors, modelling dataset | Advanced |
-| `ML_Quantile_Modelling.ipynb` | Develops, selects, evaluates, and diagnoses crop-specific quantile models under chronological validation | `data/modelling_data.csv` | Final models, 2019-2022 test results, distributional diagnostics, national representations | Advanced / still evolving |
+| Notebook | Purpose | Main output | Status |
+| --- | --- | --- | --- |
+| `ETL_Climate_Example.ipynb` | Demonstrate and validate the climate transformation on one source territory | One fully inspected monthly provincial climate example | Complete |
+| `ETL_Climate_Data.ipynb` | Run the climate ETL across all mapped Italian areas | Consolidated monthly provincial climate dataset | Complete |
+| `ETL_Production_Data.ipynb` | Harmonize agricultural area, production and yield data | Curated province × crop × year production dataset | Complete |
+| `EDA_AgriClimate_Intelligence.ipynb` | Integrate curated data, analyse yield/climate patterns and engineer crop-season predictors | Analytical findings + modelling dataset | Complete |
+| `ML_Quantile_Modelling.ipynb` | Develop, select, test and interpret crop-specific probabilistic models | Final models, 2019–2022 test results, SHAP and territorial diagnostics | Complete |
 
-## Relationship between the notebooks
+## Workflow
 
 ```text
 ETL_Climate_Example.ipynb
         │
-        │ validates and illustrates
+        │ validates
         ▼
 src/province_transformation.py
         │
         ▼
-ETL_Climate_Data.ipynb ─────────────┐
-                                    │
-                                    ├──► curated climate + production data
-                                    │                  │
-ETL_Production_Data.ipynb ──────────┘                  ▼
-                                      EDA_AgriClimate_Intelligence.ipynb
-                                                        │
-                                                        │ crop-season features
-                                                        │ + modelling table
-                                                        ▼
-                                           ML_Quantile_Modelling.ipynb
-                                                        │
-                                                        ├── model development
-                                                        ├── model selection
-                                                        ├── final test
-                                                        └── final diagnostics
+ETL_Climate_Data.ipynb ────────────┐
+                                   │
+                                   ├──► curated cloud datasets
+                                   │             │
+ETL_Production_Data.ipynb ─────────┘             ▼
+                                   EDA_AgriClimate_Intelligence.ipynb
+                                                  │
+                                                  │ crop calendar
+                                                  │ phase features
+                                                  │ historical features
+                                                  ▼
+                                      ML_Quantile_Modelling.ipynb
+                                                  │
+                                                  ├── temporal development CV
+                                                  ├── outer validation
+                                                  ├── frozen model selection
+                                                  ├── 2019–2022 final test
+                                                  ├── SHAP interpretation
+                                                  └── territorial diagnostics
 ```
 
 ## Recommended reading order
+
+For the full workflow:
 
 ```text
 1. ETL_Climate_Example.ipynb
@@ -56,11 +57,7 @@ ETL_Production_Data.ipynb ──────────┘                  ▼
 5. ML_Quantile_Modelling.ipynb
 ```
 
-For code-level understanding:
-
-- read `src/province_transformation.py` after the climate example;
-- read `src/eda_utils.py` before the EDA;
-- read `src/modelling_utils.py` before the modelling notebook.
+For a portfolio-oriented review, starting directly from the EDA and modelling notebooks is usually sufficient.
 
 ---
 
@@ -68,32 +65,30 @@ For code-level understanding:
 
 ### Purpose
 
-This notebook applies the climate workflow to a single provincial file so that the complete transformation can be inspected before running it across all source areas.
+This notebook exposes the full climate transformation on a single provincial source file before the same logic is executed in batch.
 
-### Current operations
+It is primarily a **validation and transparency notebook**.
 
-The notebook:
+### Main operations
+
+The workflow:
 
 - configures project and cloud paths;
-- reads one compressed CSV from Google Cloud Storage;
-- inspects the raw schema and sample observations;
-- validates dates, numerical fields, nulls, duplicate keys, and grid consistency;
-- checks and corrects inconsistent temperature ordering where possible;
-- derives daily province-level indicators;
-- aggregates them to month;
-- inspects intermediate and final outputs.
+- reads one compressed daily climate file from Google Cloud Storage;
+- checks raw structure and types;
+- validates dates and numerical values;
+- inspects missing observations and duplicate cell–day keys;
+- verifies grid consistency through time;
+- checks temperature ordering and repairs inconsistent minimum/average/maximum values where possible;
+- derives daily provincial indicators from the underlying grid cells;
+- aggregates the resulting information to month;
+- inspects both intermediate and final outputs.
 
-### Appropriate use
+### Why it exists
 
-Use this notebook to:
+The production ETL delegates reusable transformations to `src/province_transformation.py`.
 
-- understand the climate pipeline;
-- test source-data changes;
-- investigate a problematic province;
-- validate changes to feature definitions;
-- check a transformation before running the national batch.
-
-Reusable transformation logic should be implemented in `src/province_transformation.py`, not only in notebook cells.
+This notebook makes that logic inspectable on one manageable case and is the preferred place to diagnose source-format or transformation issues before rerunning the national batch.
 
 ---
 
@@ -101,37 +96,40 @@ Reusable transformation logic should be implemented in `src/province_transformat
 
 ### Purpose
 
-This notebook orchestrates the complete climate ETL across the mapped Italian production areas.
+This notebook orchestrates the complete climate-data transformation across the mapped Italian production areas.
 
-### Current operations
+### Main operations
 
-The workflow:
+It:
 
-- defines the mapping between target production areas and climate source files;
-- reads gzip-compressed files from Cloud Storage;
-- concatenates multiple source territories where required;
-- removes duplicate cell-day observations introduced by overlap;
-- applies the reusable provincial transformation;
-- adds province and region labels;
-- concatenates all monthly outputs;
-- validates and exports the consolidated dataset.
+- maps production territories to the appropriate source climate files;
+- reads compressed climate data from Google Cloud Storage;
+- combines multiple historical source areas where administrative boundaries require it;
+- removes duplicate cell–day observations caused by territorial overlap;
+- applies the reusable transformation in `province_transformation.py`;
+- assigns final province and region labels;
+- concatenates the monthly outputs;
+- validates the complete dataset;
+- exports the curated climate table.
 
-### Territorial mapping
+### Resulting climate representation
 
-The workflow maintains a mapping between:
+The final monthly provincial data preserve information about:
 
-```text
-territorial code
-source filename or filenames
-final production-area label
-region
-```
+- temperature levels and local extremes;
+- spatial temperature variability;
+- precipitation totals and intensity;
+- wetness and dryness;
+- wind;
+- vapour pressure;
+- evapotranspiration;
+- radiation;
+- event frequency;
+- territorial share affected by events;
+- longest event sequences;
+- altitude.
 
-This is necessary because the climate and production sources do not always use identical historical administrative boundaries.
-
-### Status
-
-The notebook has been executed across all mapped areas and represents the current complete climate batch workflow.
+The curated climate history covers **1980–2025**.
 
 ---
 
@@ -139,53 +137,41 @@ The notebook has been executed across all mapped areas and represents the curren
 
 ### Purpose
 
-This notebook converts the agricultural source into a harmonized structure that can be integrated with climate information.
-
-### Current operations
-
-The workflow:
-
-- reads the production source from Google Cloud Storage;
-- inspects variables and source structure;
-- retains the required crop, year, territory, area, production, and yield information;
-- distinguishes missing observations from structural zeroes;
-- harmonizes territorial definitions;
-- reconstructs or aggregates selected areas when required;
-- recalculates yield from total production and cultivated area where appropriate;
-- preserves provenance and quality information;
-- reshapes the data to long format;
-- validates the final observation key;
-- exports the curated production dataset.
+This notebook transforms the agricultural source into a consistent structure that can be combined with climate information.
 
 ### Observation unit
 
 ```text
-province × year × crop
+province × crop × harvest year
 ```
 
-### Main analytical fields
+### Main operations
 
-```text
-province
-year
-crop_name
-area
-production
-yield
-```
+The workflow:
 
-### Quality information
+- reads the production source;
+- retains cultivated area, production and yield information;
+- distinguishes missing observations from structural zeroes;
+- harmonizes territorial definitions;
+- reconstructs or aggregates selected historical areas where required;
+- recalculates yield from area and total production when appropriate;
+- preserves provenance and quality information;
+- reshapes the source into long format;
+- validates the final observation key;
+- exports the curated production table.
+
+### Quality fields
 
 Dedicated `q_*` fields retain information about:
 
 - territorial coverage;
 - source completeness;
 - structural zeroes;
-- calculation or reconstruction status;
-- area-production-yield coherence;
-- reconstructed territorial units.
+- reconstructed territories;
+- calculation status;
+- area–production–yield coherence.
 
-These fields are kept so that data-quality assumptions remain visible during later analysis.
+This allows later notebooks to distinguish source-data limitations from genuine agricultural patterns.
 
 ---
 
@@ -193,66 +179,63 @@ These fields are kept so that data-quality assumptions remain visible during lat
 
 ### Purpose
 
-This notebook is the main Data Understanding and feature-engineering workflow.
+This notebook performs the project's main **Data Understanding and feature-engineering** work.
 
-It connects the curated climate and production datasets, examines their analytical limitations, reconstructs climate information around the agricultural cycle, and prepares the representation used by the modelling notebook.
+Its role is not limited to visualization. It defines how the raw climate and production histories become a valid supervised-learning problem.
 
-### Data access
+### Main analytical areas
 
-The default cloud path uses:
+The notebook covers:
 
-```text
-agriclimate-intelligence.curated.climate_full_dataset_v1
-agriclimate-intelligence.curated.production_full_dataset_v1
-```
+- data structure and internal consistency;
+- temporal and territorial completeness;
+- production-data quality flags;
+- univariate production and climate distributions;
+- yield variation through time;
+- macro-regional differences;
+- robust long-term yield trends;
+- partial autocorrelation;
+- altitude;
+- crop calendars and agricultural phases;
+- climate behaviour across crop phases;
+- bivariate climate–yield relationships;
+- crop-specific feature rankings;
+- geographical comparison of relevant climate indicators;
+- preparation of the final modelling table.
 
-Optional local CSV copies can also be used when available.
+### Crop-season engineering
 
-### Current analytical coverage
+Annual harvest yield is not matched mechanically to calendar-year climate.
 
-The notebook includes:
-
-- initial structure and type checks;
-- internal-consistency checks;
-- temporal and territorial coverage;
-- missing and absent production observations;
-- review of quality flags;
-- univariate exploration of production and climate variables;
-- yield distributions;
-- temporal yield patterns;
-- macro-regional comparisons;
-- robust long-term trend estimation;
-- partial-autocorrelation summaries;
-- altitude analysis;
-- crop-calendar and crop-phase reconstruction;
-- phase-level environmental summaries;
-- bivariate analysis between yield and engineered predictors;
-- crop-specific correlation rankings;
-- selected follow-up visualizations;
-- preparation of the modelling dataset.
-
-### Role in the project
-
-The EDA is not only descriptive. It provides the methodological bridge between the curated monthly data and the annual supervised-learning problem.
-
-The transformations and observations developed here determine:
-
-- which crops proceed to modelling;
-- how the agricultural season is represented;
-- which climate periods are aggregated;
-- which predictors become available to the models;
-- how historical yield information is represented;
-- which data-quality issues must remain visible.
-
-### Output boundary
-
-Generated analytical datasets are not committed to the public repository.
-
-The modelling notebook expects the current local modelling export at:
+Climate variables are reorganized around the relevant crop cycle and aggregated into agronomically meaningful phases such as:
 
 ```text
-data/modelling_data.csv
+planting / early vegetative
+vegetative / reproductive
+ripening / harvest
 ```
+
+This allows the same physical variable to play different predictive roles depending on when it occurs in the crop cycle.
+
+### Main modelling hand-off
+
+The EDA produces the feature representation used by the modelling notebook.
+
+The current modelling table contains:
+
+```text
+7,576 supervised observations
+4 historical yield predictors
+192 crop-phase climate predictors
+```
+
+Current-year area, production and yield are not used as predictors.
+
+### Important analytical finding
+
+Several strong pooled climate–yield relationships also have a marked spatial footprint.
+
+This is particularly important for durum wheat, where yield, evapotranspiration, radiation, wind and frost exposure all show strong macro-regional structure. The modelling stage later demonstrates that much of this persistent spatial information is already summarized effectively by historical provincial and regional yield.
 
 ---
 
@@ -260,9 +243,9 @@ data/modelling_data.csv
 
 ### Purpose
 
-This notebook is the main model-development, model-selection, final-evaluation, and probabilistic-diagnostics workflow for annual crop yield.
+This notebook contains the complete crop-specific model-development and evaluation workflow.
 
-Three crops are modelled separately:
+It models:
 
 ```text
 Durum wheat
@@ -270,9 +253,7 @@ Soft wheat
 Grain maize
 ```
 
-### Modelling objective
-
-The workflow estimates three conditional yield quantiles:
+The target is probabilistic rather than purely point-based:
 
 ```text
 Q1 = 0.25
@@ -280,328 +261,238 @@ Q2 = 0.50
 Q3 = 0.75
 ```
 
-Q2, the conditional median, is the primary model-selection objective.
+Q2 is the primary model-selection objective and all three quantiles are evaluated with pinball loss.
 
-Performance is evaluated with **pinball loss**.
+## Temporal design
 
-### Current modelling data
+All validation respects time order.
 
-After rows without an observed target are removed, the workflow uses:
-
-```text
-7,576 observations
-4 historical predictors
-192 crop-phase climate predictors
-196 SFS candidate predictors
-```
-
-Current-year `area`, `production`, and `yield` are not used as predictors.
-
-### Temporal validation design
-
-The chronological split is fixed before model comparison.
-
-#### Development folds
+### Inner development folds
 
 ```text
-train through 2006 → validate on 2007-2009
-train through 2009 → validate on 2010-2012
-train through 2012 → validate on 2013-2015
+train through 2006 → validate on 2007–2009
+train through 2009 → validate on 2010–2012
+train through 2012 → validate on 2013–2015
 ```
 
-These expanding folds are used for feature selection, regularization checks, temporal stability analysis, and model screening.
-
-#### Outer validation
+### Outer model-selection validation
 
 ```text
-2016-2018
+2016–2018
 ```
 
-This is the last period allowed to influence the final model choice.
-
-#### Final test
+### Final test
 
 ```text
-2019-2022
+2019–2022
 ```
 
-The final test is used only after model selection has been frozen.
+The final test does not influence feature selection, early stopping, hyperparameters, model-family comparison or final model choice.
 
-It does not contribute to:
+## Modelling sequence
 
-- feature selection;
-- early stopping;
-- hyperparameter decisions;
-- model-family comparison;
-- crop-specific model selection.
+### 1. Naive persistence benchmark
 
-### Current experiment sequence
+Previous-year yield establishes a minimum level of forecasting skill.
 
-The notebook now contains:
+The first learned historical model improves mean temporal-CV Q2 pinball loss over persistence for all three crops.
 
-1. **Naive persistence benchmark**
-   - predicts yield from the previous observed year;
-   - evaluated on Q2 only;
-   - establishes a minimum forecasting-skill hurdle.
+### 2. Historical linear quantile model
 
-2. **Historical linear quantile baseline**
-   - four historical predictors;
-   - Q1, Q2, and Q3 models;
-   - chronological temporal CV.
+`Linear H` uses:
 
-3. **Sequential Forward Selection**
-   - performed separately by crop;
-   - Q2 temporal-CV objective;
-   - historical and crop-phase climate predictors compete in the same pool;
-   - the original expensive search is not rerun;
-   - the exact selected feature sets are stored explicitly.
+```text
+yield_lag_1
+yield_lag_1_missing
+5-year provincial rolling yield median
+5-year regional rolling yield median
+```
 
-4. **Temporal stability analysis**
-   - compares historical and SFS linear specifications fold by fold;
-   - checks whether average improvements remain consistent over time.
+The rolling summaries use only observations from previous calendar years.
 
-5. **L1-regularized linear quantile regression**
-   - tests whether coefficient shrinkage improves the selected linear specifications.
+### 3. Sequential Forward Selection
 
-6. **CatBoost**
-   - conventional nonlinear tabular comparison;
-   - Q2-focused;
-   - early stopping uses only recent years inside the current training window;
-   - the selected number of trees is then refitted on the complete training block.
+SFS allows historical and climate predictors to compete in the same candidate pool.
 
-7. **Outer validation**
-   - compares the strongest developed specifications on 2016-2018.
+It is run separately by crop using chronological CV and Q2 pinball loss.
 
-8. **Tabular foundation models / TabPFN**
-   - introduces the modelling paradigm theoretically;
-   - compares historical, SFS, and broader feature representations;
-   - preserves native missing values where supported.
+The retained sets contain:
 
-9. **Model-selection tie-breakers**
-   - applies temporal robustness when outer-validation candidates are sufficiently close;
-   - examines quantile behaviour where temporal robustness does not fully separate the finalists.
-
-10. **Final crop-specific selection**
-    - freezes one specification for each crop before test access.
-
-11. **Final model refit**
-    - combines 1995-2015 development data with the 2016-2018 outer-validation block;
-    - refits each already frozen specification using all admissible pre-test observations.
-
-12. **Final 2019-2022 evaluation**
-    - evaluates each final model exactly once;
-    - reports raw-prediction Q1, Q2, and Q3 pinball losses.
-
-13. **Distributional post-processing**
-    - enforces non-negative, ordered quantiles for downstream interpretation;
-    - derives conditional IQR and Tukey-style limits.
-
-14. **Final distributional diagnostics**
-    - empirical quantile coverage;
-    - Q1-Q3 coverage;
-    - conditional dispersion;
-    - low and high outlier counts.
-
-15. **Validation-to-test comparison**
-    - compares final Q2 loss with the preceding outer-validation evidence;
-    - reports temporal generalization without reopening model selection.
-
-16. **Geographic outlier analysis**
-    - summarizes final-test outliers by region.
-
-17. **Final linear-model interpretation**
-    - verifies scaled/unscaled equivalence for unregularized `Linear H`;
-    - fits the final durum-wheat equations directly in original feature units;
-    - reports coefficients for Q1, Q2, and Q3.
-
-18. **National aggregation**
-    - converts province-level yield estimates into implied production;
-    - aggregates production and cultivated area;
-    - reconstructs area-weighted national yield quantile series;
-    - visualizes observed yield, median forecast, IQR, and conditional limits.
-
-### Naive benchmark
-
-The first learned model must outperform a simple persistence rule before more complex modelling is considered useful.
-
-`Linear H` improves mean temporal-CV Q2 pinball loss over the naive benchmark by approximately:
-
-- **10.0% for durum wheat**;
-- **11.2% for soft wheat**;
-- **7.8% for grain maize**.
-
-The naive model is therefore not retained as a final candidate.
-
-### SFS feature sets
-
-The stored SFS selections contain:
-
-| Crop | Total selected | Historical | Climate |
+| Crop | Total | Historical | Climate |
 | --- | ---: | ---: | ---: |
 | Durum wheat | 12 | 3 | 9 |
 | Soft wheat | 18 | 3 | 15 |
 | Grain maize | 25 | 4 | 21 |
 
-The selected sets are specific to the linear Q2 selection procedure. Excluded features are not assumed to be uninformative for nonlinear models.
+The completed search is stored explicitly in the notebook rather than rerun on every execution.
 
-### Final model selection
+### 4. Temporal stability
 
-The final specifications are:
+Historical and SFS linear specifications are compared fold by fold to determine whether average gains are stable through time.
 
-```text
-Durum wheat → Linear H
-Grain maize → TabPFN SFS
-Soft wheat  → TabPFN Full
-```
+### 5. L1 regularization
 
-The 2019-2022 observations were not used to make these choices.
+A deliberately narrow sensitivity experiment tests whether coefficient shrinkage improves the SFS linear specifications.
 
-For close outer-validation results, the notebook uses additional pre-test evidence instead of automatically selecting the smallest single validation loss.
+### 6. CatBoost
 
-For grain maize, the comparison between `TabPFN SFS` and `TabPFN Full` proceeds to temporal robustness.
+CatBoost provides a conventional nonlinear tabular comparison.
 
-For soft wheat, the close `TabPFN H` versus `TabPFN Full` comparison proceeds first to temporal robustness and then to quantile behaviour. `TabPFN Full` is ultimately selected because its Q1, Q2, and Q3 pinball losses provide the stronger overall predictive evidence.
+Early stopping uses only the most recent years inside the training window. The external validation period is never used for stopping decisions.
 
-### Final training and test
+### 7. Outer validation
 
-Once the model choices are frozen:
+The strongest conventional specifications are evaluated on 2016–2018.
 
-```text
-final training = 1995-2018
-final test     = 2019-2022
-```
+### 8. TabPFN
 
-Final pre-test training sizes are:
+TabPFN introduces a tabular foundation model comparison using:
 
-| Crop | Final training rows | Final test rows |
-| --- | ---: | ---: |
-| Durum wheat | 2,058 | 373 |
-| Grain maize | 2,294 | 366 |
-| Soft wheat | 2,124 | 361 |
+- historical features;
+- SFS-selected features;
+- the full candidate feature set.
 
-### Final predictive performance
+Native numerical missing values are preserved where the model supports them.
 
-| Crop | Final model | Test Q1 | Test Q2 | Test Q3 |
+### 9. Model-selection tie-breakers
+
+When outer-validation candidates are sufficiently close, selection is not based mechanically on the smallest single score.
+
+The notebook uses:
+
+- temporal robustness across all pre-test folds;
+- Q1/Q2/Q3 predictive behaviour;
+- calibration information where relevant.
+
+### 10. Frozen final models
+
+The final choices are:
+
+| Crop | Model |
+| --- | --- |
+| Durum wheat | `Linear H` |
+| Grain maize | `TabPFN SFS` |
+| Soft wheat | `TabPFN Full` |
+
+These choices are frozen before test access.
+
+### 11. Final refit and 2019–2022 test
+
+The selected models are refitted on all admissible **1995–2018** observations and evaluated once on **2019–2022**.
+
+Final pinball losses are:
+
+| Crop | Model | Test Q1 | Test Q2 | Test Q3 |
 | --- | --- | ---: | ---: | ---: |
 | Durum wheat | `Linear H` | 0.1756 | **0.2106** | 0.1898 |
 | Grain maize | `TabPFN SFS` | 0.3348 | **0.3759** | 0.2965 |
 | Soft wheat | `TabPFN Full` | 0.1978 | **0.2393** | 0.2026 |
 
-These losses are calculated from the raw predictions and remain the official final-test performance metrics.
+The values above are calculated from the raw model predictions and are the official final-test results.
 
-### Quantile post-processing
+### 12. Distributional diagnostics
 
-For downstream distributional interpretation, predicted quantiles are converted into a logically coherent order:
-
-```text
-0 <= Q1* <= Q2* <= Q3*
-```
-
-The corrected quartiles are then used to derive:
+The predicted quartiles are subsequently made non-negative and monotonically ordered for downstream interpretation:
 
 ```text
-predicted IQR = Q3* - Q1*
-lower limit   = max(0, Q1* - 1.5 × IQR)
-upper limit   = Q3* + 1.5 × IQR
+0 ≤ Q1* ≤ Q2* ≤ Q3*
 ```
 
-This post-processing does not change the raw final-test pinball losses.
+The corrected distribution is used to derive:
 
-### Final distributional diagnostics
-
-The notebook reports:
-
-- empirical Q1, Q2, and Q3 coverage;
-- Q1-Q3 interval coverage;
-- median predicted IQR;
+- conditional interquartile range;
+- Tukey-style lower and upper limits;
+- empirical quantile coverage;
+- Q1–Q3 interval coverage;
 - low and high conditional outliers.
 
-The raw final-test predictions contain only a small number of quantile-ordering violations, all associated with the independently fitted durum-wheat linear quantiles. The downstream corrected representation resolves them.
+The Q1–Q3 empirical coverage is close to the nominal 50% for all three crops.
 
-### Geographic diagnostics
+### 13. Year-specific and geographical diagnostics
 
-Province-year observations outside the conditional Tukey-style limits are summarized by region.
+The final test is also examined by year and by region.
 
-This diagnostic is descriptive. It does not compare or reselect models.
+This is diagnostic only: it does not reopen model selection.
 
-### Final linear interpretation
+### 14. Linear-model interpretation
 
-For durum wheat, the selected model is an unregularized linear quantile regression.
+The final durum-wheat model is refitted without standardization after a numerical equivalence check confirms that scaling does not alter predictions for the unregularized linear specification.
 
-A pre-test equivalence check confirms that scaling changes only the parameterization, not the predictions. The final model is therefore fitted without standardization so that coefficients can be interpreted directly in the original feature units.
+This makes the Q1/Q2/Q3 equations directly interpretable in the original feature units.
 
-### National aggregation
+### 15. TabPFN interpretation with SHAP
 
-The primary modelling output remains the province-level prediction.
+The final soft-wheat and maize TabPFN models are interpreted after model selection using SHAP values estimated through the TabPFN/shapiq workflow.
 
-National yield is reconstructed by:
+The analysis shows:
 
-1. multiplying each province-level predicted yield by cultivated area;
-2. summing implied production across provinces;
-3. dividing aggregate production by aggregate cultivated area.
+- a concentrated historical + targeted climate structure for grain maize;
+- a strong historical backbone plus distributed environmental information for soft wheat.
 
-The resulting Q1, Q2, and Q3 series are area-weighted aggregates of province-level forecasts rather than quantiles of a separately fitted national model.
+### 16. National and territorial aggregation
 
-### Current boundary
+Province-level yield predictions remain the primary model output.
 
-The notebook has now passed the principal model-selection and final-performance stages.
+For aggregation, yield is first converted into implied production using cultivated area. Production is then summed and aggregate yield reconstructed from:
 
-Remaining project work is more naturally concentrated on:
+```text
+total predicted production / total cultivated area
+```
 
-- deeper interpretation of the nonlinear final models;
-- synthesis of the modelling evidence;
-- integration with the wider Capstone conclusions and communication layer.
+This avoids treating provinces with very different cultivated areas as equally important.
 
-The final test results must not be used retrospectively to change the selected model specifications.
+The final notebook provides both national plots and selected macro-regional views.
 
-### TabPFN access
+## Final synthesis
 
-The notebook uses `tabpfn_client`.
+Across the three crops, the modelling evidence supports a common structure:
 
-Authentication information should be read from a local `.env` file or equivalent environment configuration.
+> **Recent history and persistent geography establish the expected productivity of a territory; current-season climate modifies that baseline when it contains additional predictive information.**
 
-Never commit API tokens or credentials to the repository.
+The form of the climate contribution differs by crop:
+
+- largely embedded in spatial historical productivity for durum wheat;
+- concentrated in a smaller set of water- and thermal-condition variables for grain maize;
+- broader and multivariate for soft wheat.
+
+The interpretation is predictive rather than causal.
 
 ---
 
-## Cloud authentication
+## Data access
 
-The cloud-based notebooks use Google Cloud Application Default Credentials.
+The ETL and EDA workflows use Google Cloud Storage and BigQuery.
+
+The modelling notebook currently reads:
+
+```text
+data/modelling_data.csv
+```
+
+A direct BigQuery modelling-data read is planned as a repository convenience improvement; it does not change the completed analysis.
+
+## Authentication
+
+### Google Cloud
 
 ```bash
 gcloud auth application-default login
 ```
 
-The authenticated account must have access to the required Cloud Storage objects and BigQuery tables.
+### TabPFN
 
-Never place service-account keys or credentials directly in notebook cells.
+The TabPFN access token must be supplied through local environment configuration, for example a `.env` file excluded from Git.
 
-## Local project layout
-
-When locally generated datasets are used, the expected structure is:
-
-```text
-agriclimate-intelligence/
-├── data/
-│   └── modelling_data.csv
-├── notebooks/
-└── src/
-```
-
-The `data/` directory is intentionally not part of the public versioned workflow.
+Never commit credentials or API tokens.
 
 ## Notebook conventions
 
-When editing notebooks:
+When modifying the notebooks:
 
-- maintain a clear top-to-bottom execution order;
+- preserve top-to-bottom execution;
 - keep chronological validation explicit;
-- separate data access from reusable analytical logic;
+- keep final-test evidence separate from model-selection evidence;
 - move reusable functions to `src/`;
-- explain methodological choices in markdown;
-- distinguish model-development evidence from final-test evidence;
-- never use the final test to revise a frozen model choice;
-- avoid user-specific absolute paths;
-- never commit credentials or API tokens;
-- avoid committing unnecessary large outputs;
-- update this README when the role or status of a notebook changes.
+- distinguish predictive interpretation from causal claims;
+- keep credentials and generated private data outside Git;
+- document any methodological change that would alter reported results.
