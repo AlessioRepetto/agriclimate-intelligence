@@ -1,3 +1,7 @@
+<p align="center">
+  <img width="460" height="282" src="images/logo.png">
+</p>
+
 # AgriClimate Intelligence
 
 **Probabilistic crop-yield modelling for Italy using historical production, climate data, temporal validation and tabular foundation models.**
