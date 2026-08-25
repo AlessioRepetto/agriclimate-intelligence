@@ -73,15 +73,24 @@ Monthly provincial climate indicators
                   ▼
           Curated BigQuery tables
                   │
-                  ▼
-           Exploratory analysis
+                  ├──────────────► Exploratory analysis
                   │
-                  │ crop calendars
-                  │ phase engineering
+                  ▼
+        Versioned BigQuery SQL layer
+                  │
+                  │ crop calendar
+                  │ phase aggregation
+                  │ historical yield features
                   ▼
           Province × crop × year
              modelling table
                   │
+          ┌───────┴────────┐
+          │                │
+          ▼                ▼
+ direct BigQuery load   optional local CSV
+          │                │
+          └───────┬────────┘
                   ▼
        Chronological model development
                   │
@@ -98,6 +107,10 @@ Monthly provincial climate indicators
 The climate ETL preserves more than simple monthly averages. It includes information about local extremes, spatial variability, affected territorial share, event frequency, consecutive-event duration, precipitation intensity, evapotranspiration, radiation and altitude.
 
 Agricultural-production processing also retains explicit quality information so that structural zeroes, missing source components and reconstructed territorial units are not silently mixed with ordinary observations.
+
+The hand-off from the curated cloud data to modelling is implemented through the versioned BigQuery scripts under [`sql/`](sql/). These scripts define the crop calendar, validate the climate aggregation policy, construct phase-level climate features and materialize the final province × crop × harvest-year modelling table used by the ML workflow.
+
+The modelling notebook can load this table directly from BigQuery. Equivalent local CSV exports can also be used as a development/cache layer; they are intentionally excluded from version control because of their size.
 
 ## Exploratory analysis and feature engineering
 
@@ -297,13 +310,21 @@ Matplotlib · seaborn
 agriclimate-intelligence/
 ├── .github/
 │   └── CODEOWNERS
-├── images/                         # README figures to add
+├── data/
+│   └── README.md                    # local data policy and reproduction notes
+├── images/                          # figures used in project documentation
 ├── notebooks/
 │   ├── EDA_AgriClimate_Intelligence.ipynb
 │   ├── ETL_Climate_Data.ipynb
 │   ├── ETL_Climate_Example.ipynb
 │   ├── ETL_Production_Data.ipynb
 │   ├── ML_Quantile_Modelling.ipynb
+│   └── README.md
+├── sql/
+│   ├── 000_crop_calendar.sql
+│   ├── 010_dim_province.sql
+│   ├── 020_climate_aggregation_rules.sql
+│   ├── 030_modeling_dataset.sql
 │   └── README.md
 ├── src/
 │   ├── __init__.py
@@ -315,10 +336,12 @@ agriclimate-intelligence/
 └── README.md
 ```
 
-The repository intentionally separates notebook orchestration from reusable code:
+The repository intentionally separates notebook orchestration, reusable Python code, warehouse transformations and local generated data:
 
 - [`notebooks/README.md`](notebooks/README.md) documents each analytical workflow;
-- [`src/README.md`](src/README.md) documents the shared Python utilities.
+- [`src/README.md`](src/README.md) documents the shared Python utilities;
+- [`sql/README.md`](sql/README.md) documents the BigQuery transformation layer used to materialize the modelling dataset;
+- [`data/README.md`](data/README.md) explains the local data convention and why the full generated datasets are not committed.
 
 ## Suggested reading path
 
@@ -327,29 +350,37 @@ For someone reviewing the project as a portfolio:
 1. **This README** - problem, methodology and principal results.
 2. [`EDA_AgriClimate_Intelligence.ipynb`](notebooks/EDA_AgriClimate_Intelligence.ipynb) - analytical reasoning and crop-phase feature engineering.
 3. [`ML_Quantile_Modelling.ipynb`](notebooks/ML_Quantile_Modelling.ipynb) - full model-development, selection, final-test and interpretation workflow.
-4. [`src/`](src/) - reusable ETL, EDA and modelling utilities.
+4. [`sql/`](sql/) - warehouse-side construction of the modelling dataset from the curated BigQuery tables.
+5. [`src/`](src/) - reusable ETL, EDA and modelling utilities.
 
 For the complete data-engineering path, start from the ETL notebooks documented in [`notebooks/README.md`](notebooks/README.md).
 
 ## Reproducibility notes
 
-Cloud-based ETL and EDA workflows use Google Cloud Application Default Credentials:
+Cloud-based ETL, EDA and BigQuery workflows use Google Cloud Application Default Credentials:
 
 ```bash
 gcloud auth application-default login
 ```
 
-The modelling notebook currently reads the generated modelling table from:
+The warehouse-side transformation from the curated climate and production tables to the modelling dataset is versioned under [`sql/`](sql/). The canonical modelling table used by the ML workflow is:
+
+```text
+agriclimate-intelligence.ml.modeling_dataset_v1
+```
+
+The modelling notebook supports direct loading from BigQuery. For local development, an equivalent CSV export can also be placed under `data/` and used as a cache/fallback:
 
 ```text
 data/modelling_data.csv
 ```
 
+Large local data files are intentionally excluded from Git version control; [`data/README.md`](data/README.md) documents this convention.
+
 TabPFN experiments require an authenticated `tabpfn_client` token stored locally in environment configuration and never committed to the repository.
 
-The **main analytical work is complete**. A small number of repository-quality improvements are planned separately, including:
+The **main analytical work is complete**. Remaining repository-quality improvements are limited to engineering and distribution aspects, including:
 
-- direct loading of the modelling dataset from BigQuery;
 - a shared `requirements` file;
 - additional reproducibility and packaging refinements.
 
