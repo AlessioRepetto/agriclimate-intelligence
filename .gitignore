@@ -1,1 +1,55 @@
+# -----------------------------------------------------------------------------
+# Local data
+# -----------------------------------------------------------------------------
+# Keep the directory documentation under version control, but exclude local
+# datasets and exports used by the notebooks.
+data/**
+!data/README.md
 
+# -----------------------------------------------------------------------------
+# Secrets and local environment configuration
+# -----------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# Google Cloud / service-account credentials
+*service-account*.json
+*service_account*.json
+*credentials*.json
+
+# -----------------------------------------------------------------------------
+# Python
+# -----------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+
+# -----------------------------------------------------------------------------
+# Jupyter
+# -----------------------------------------------------------------------------
+.ipynb_checkpoints/
+
+# -----------------------------------------------------------------------------
+# Editors and operating systems
+# -----------------------------------------------------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
