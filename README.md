@@ -434,4 +434,4 @@ It is presented here as a portfolio project demonstrating an end-to-end workflow
 
 ---
 
-© 2026 Alessio Repetto. All rights reserved. No license for reuse or redistribution is granted at this stage.
+© 2026 Alessio Repetto. All rights reserved for the original code, analysis, documentation and visualisations in this repository, except where otherwise stated. Third-party data, software and other materials remain subject to their respective licences, terms of use and attribution requirements. No licence for reuse or redistribution of the author's original project materials is granted at this stage.
