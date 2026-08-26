@@ -296,6 +296,7 @@ The final test does not influence feature selection, early stopping, hyperparame
 Previous-year yield establishes a minimum level of forecasting skill.
 
 The first learned historical model improves mean temporal-CV Q2 pinball loss over persistence for all three crops.
+This comparison refers to the development-period temporal folds. After model selection is frozen, the naive benchmark is evaluated again on the independent 2019–2022 test period to quantify the incremental median predictive skill of the final models.
 
 ### 2. Historical linear quantile model
 
@@ -314,7 +315,9 @@ The rolling summaries use only observations from previous calendar years.
 
 SFS allows historical and climate predictors to compete in the same candidate pool.
 
-It is run separately by crop using chronological CV and Q2 pinball loss.
+It is run separately by crop using **linear quantile regression** as the wrapper estimator, chronological CV and Q2 pinball loss. The resulting subsets are therefore model-specific to the linear estimator.
+
+Repeating the complete wrapper search independently for CatBoost and especially for the hosted TabPFN model would require substantially greater computational and API resources. The linear-SFS subsets are consequently reused as predefined compact feature representations for the nonlinear models, while the `Full` feature set is also evaluated to test whether those models benefit from information excluded by the linear wrapper.
 
 The retained sets contain:
 
@@ -390,7 +393,25 @@ Final pinball losses are:
 
 The values above are calculated from the raw model predictions and are the official final-test results.
 
-### 12. Distributional diagnostics
+### 12. Final models vs naive persistence
+
+The frozen final models are also compared with the naive persistence benchmark on the independent 2019–2022 test period.
+
+For Q2 pinball loss, the relative improvements over persistence are:
+
+| Crop | Final model | Improvement over naive |
+| --- | --- | ---: |
+| Durum wheat | `Linear H` | **0.2%** |
+| Grain maize | `TabPFN SFS` | **14.8%** |
+| Soft wheat | `TabPFN Full` | **1.0%** |
+
+All three final models outperform persistence, but the magnitude of the gain differs substantially.
+
+Grain maize provides the clearest evidence of incremental median predictive skill beyond previous-year yield. Soft wheat improves only modestly over persistence, while the durum-wheat model is essentially tied with the naive benchmark on Q2.
+
+This comparison evaluates **median predictive skill only**. Unlike the persistence benchmark, the selected models also estimate Q1 and Q3 and therefore provide conditional uncertainty information.
+
+### 13. Distributional diagnostics
 
 The predicted quartiles are subsequently made non-negative and monotonically ordered for downstream interpretation:
 
@@ -408,19 +429,19 @@ The corrected distribution is used to derive:
 
 The Q1–Q3 empirical coverage is close to the nominal 50% for all three crops.
 
-### 13. Year-specific and geographical diagnostics
+### 14. Year-specific and geographical diagnostics
 
 The final test is also examined by year and by region.
 
 This is diagnostic only: it does not reopen model selection.
 
-### 14. Linear-model interpretation
+### 15. Linear-model interpretation
 
 The final durum-wheat model is refitted without standardization after a numerical equivalence check confirms that scaling does not alter predictions for the unregularized linear specification.
 
 This makes the Q1/Q2/Q3 equations directly interpretable in the original feature units.
 
-### 15. TabPFN interpretation with SHAP
+### 16. TabPFN interpretation with SHAP
 
 The final soft-wheat and maize TabPFN models are interpreted after model selection using SHAP values estimated through the TabPFN/shapiq workflow.
 
@@ -429,7 +450,9 @@ The analysis shows:
 - a concentrated historical + targeted climate structure for grain maize;
 - a strong historical backbone plus distributed environmental information for soft wheat.
 
-### 16. National and territorial aggregation
+These attribution patterns describe how the fitted models construct their predictions and should not be interpreted directly as incremental predictive skill. On the final test, the richer TabPFN representation produces a substantial Q2 gain over persistence for grain maize, but only a modest gain for soft wheat.
+
+### 17. National and territorial aggregation
 
 Province-level yield predictions remain the primary model output.
 
@@ -449,11 +472,11 @@ Across the three crops, the modelling evidence supports a common structure:
 
 > **Recent history and persistent geography establish the expected productivity of a territory; current-season climate modifies that baseline when it contains additional predictive information.**
 
-The form of the climate contribution differs by crop:
+The form and predictive value of the additional information differ substantially by crop:
 
-- largely embedded in spatial historical productivity for durum wheat;
-- concentrated in a smaller set of water- and thermal-condition variables for grain maize;
-- broader and multivariate for soft wheat.
+- **Durum wheat:** historical productivity dominates, and the final linear model is essentially tied with previous-year persistence for median prediction on the final test. Climate relationships observed in the EDA appear largely entangled with persistent geographical structure.
+- **Grain maize:** a compact combination of historical and seasonal predictors produces the clearest incremental forecasting gain, reducing final-test Q2 pinball loss by approximately **14.8%** relative to persistence.
+- **Soft wheat:** the fitted TabPFN model uses a broader multivariate environmental representation, but this additional complexity translates into only about **1.0%** improvement in final-test Q2 loss over persistence.
 
 The interpretation is predictive rather than causal.
 
@@ -461,15 +484,11 @@ The interpretation is predictive rather than causal.
 
 ## Data access
 
-The ETL and EDA workflows use Google Cloud Storage and BigQuery.
+The curated datasets are available through Google Cloud Storage and BigQuery.
 
-The modelling notebook currently reads:
+The modelling notebook supports loading the modelling dataset from BigQuery, while the equivalent local CSV structure is retained as a reproducible local-data option where applicable.
 
-```text
-data/modelling_data.csv
-```
-
-A direct BigQuery modelling-data read is planned as a repository convenience improvement; it does not change the completed analysis.
+Large source and generated datasets are not stored directly in the Git repository.
 
 ## Authentication
 
@@ -484,6 +503,10 @@ gcloud auth application-default login
 The TabPFN access token must be supplied through local environment configuration, for example a `.env` file excluded from Git.
 
 Never commit credentials or API tokens.
+
+For reproducibility, the `tabpfn-client` package version is pinned in the project requirements. Because inference is served remotely, the notebook also records the API checkpoint used for the reported experiments:
+
+`tabpfn-v3-regressor-v3_default.ckpt`
 
 ## Notebook conventions
 

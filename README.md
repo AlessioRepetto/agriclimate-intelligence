@@ -35,6 +35,7 @@ This is one of the three plots generated in the cell immediately below that sect
 | **Forecast target** | Q1, Q2 and Q3 conditional yield quantiles |
 | **Primary metric** | Q2 pinball loss |
 | **Model families tested** | Linear quantile regression, SFS, L1 regularization, CatBoost, TabPFN |
+| **Forecast benchmark** | Previous-year yield persistence |
 | **Model-selection validation** | 2016–2018 |
 | **Final untouched test** | 2019–2022 |
 | **Cloud stack** | Google Cloud Storage + BigQuery |
@@ -152,7 +153,7 @@ The test set is never used for feature selection, early stopping, hyperparameter
 
 The modelling sequence deliberately moves from simple to more flexible approaches:
 
-1. **Naive persistence** - previous observed yield as a minimum forecasting benchmark.
+1. **Naive persistence** - previous observed yield as a minimum forecasting benchmark, evaluated during development and again on the independent final test after model selection is frozen.
 2. **Linear H** - quantile regression using four historical yield predictors.
 3. **Linear SFS** - Sequential Forward Selection over historical and climate variables.
 4. **L1 quantile regression** - regularization sensitivity check.
@@ -173,6 +174,16 @@ The final model choice is crop-specific:
 | Soft wheat | **TabPFN Full** | Historical + full climate feature set | 0.1978 | **0.2393** | 0.2026 |
 
 All values are pinball losses on the independent 2019–2022 test period. Lower is better.
+
+The selected models are also compared with the naive previous-year persistence benchmark on the same independent test period:
+
+| Crop | Final model | Q2 improvement over naive |
+| --- | --- | ---: |
+| Durum wheat | `Linear H` | **0.2%** |
+| Grain maize | `TabPFN SFS` | **14.8%** |
+| Soft wheat | `TabPFN Full` | **1.0%** |
+
+All three final models outperform persistence on Q2, but the magnitude of the gain differs substantially. Grain maize provides the clearest evidence of incremental median predictive skill beyond previous-year yield; soft wheat improves only modestly, while durum wheat is essentially tied with the naive benchmark. This comparison concerns median predictive skill only: unlike persistence, the selected models also estimate Q1 and Q3 and therefore provide conditional uncertainty information.
 
 The fact that three crops lead to three different final specifications is itself informative: there is no single universally superior feature representation or model family.
 
@@ -332,7 +343,9 @@ agriclimate-intelligence/
 │   ├── modelling_utils.py
 │   ├── province_transformation.py
 │   └── README.md
+├── .env.example                    # template for local environment variables
 ├── .gitignore
+├── requirements.txt                # pinned Python dependencies
 └── README.md
 ```
 
@@ -355,13 +368,41 @@ For someone reviewing the project as a portfolio:
 
 For the complete data-engineering path, start from the ETL notebooks documented in [`notebooks/README.md`](notebooks/README.md).
 
-## Reproducibility notes
+## Installation and authentication
+
+The project was developed and tested with **Python 3.13.14**. The repository provides pinned direct dependencies in [`requirements.txt`](requirements.txt).
+
+Install them with:
+
+```bash
+pip install -r requirements.txt
+```
+
+### Google Cloud
 
 Cloud-based ETL, EDA and BigQuery workflows use Google Cloud Application Default Credentials:
 
 ```bash
 gcloud auth application-default login
 ```
+
+### TabPFN
+
+TabPFN experiments require an authenticated `tabpfn_client` token.
+
+The repository provides `.env.example` as a template for the required local environment configuration. Create a local `.env` file from that template, insert your own token and keep the resulting `.env` outside version control.
+
+Credentials and API tokens must never be committed to the repository.
+
+Because TabPFN inference is served remotely, the modelling notebook also records the API checkpoint used for the reported experiments:
+
+```text
+tabpfn-v3-regressor-v3_default.ckpt
+```
+
+The `tabpfn-client` and related interpretation packages are pinned in [`requirements.txt`](requirements.txt) to document the local client environment used for the reported analysis.
+
+## Reproducibility notes
 
 The warehouse-side transformation from the curated climate and production tables to the modelling dataset is versioned under [`sql/`](sql/). The canonical modelling table used by the ML workflow is:
 
@@ -375,19 +416,16 @@ The modelling notebook supports direct loading from BigQuery. For local developm
 data/modelling_data.csv
 ```
 
-Large local data files are intentionally excluded from Git version control; [`data/README.md`](data/README.md) documents this convention.
+Large source and generated data files are intentionally excluded from Git version control; [`data/README.md`](data/README.md) documents the expected local structure and the corresponding cloud sources.
 
-TabPFN experiments require an authenticated `tabpfn_client` token stored locally in environment configuration and never committed to the repository.
-
-The **main analytical work is complete**. Remaining repository-quality improvements are limited to engineering and distribution aspects, including:
-
-- a shared `requirements` file;
-- additional reproducibility and packaging refinements.
-
-These are engineering and distribution improvements rather than changes to the reported analytical conclusions or final test results.
+The analytical workflow is complete. The repository now includes the versioned SQL layer, pinned Python requirements, local environment template, cloud-authentication notes and explicit model/API reproducibility information needed to reconstruct the published workflow without committing private credentials or large generated datasets.
 
 ## Academic context
 
 This project was developed as the Capstone for the **Executive Master in Data Science at Rome Business School**.
 
 It is presented here as a portfolio project demonstrating an end-to-end workflow spanning cloud data engineering, exploratory analysis, temporal validation, probabilistic machine learning, tabular foundation models, model interpretation and domain-oriented communication.
+
+---
+
+© 2026 Alessio Repetto. All rights reserved. No license for reuse or redistribution is granted at this stage.
