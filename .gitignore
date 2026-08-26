@@ -1,4 +1,17 @@
 # -----------------------------------------------------------------------------
+# Data
+# -----------------------------------------------------------------------------
+
+# Ignore any new files added to the data directory.
+data/*
+
+# Keep only the versioned analytical datasets and documentation.
+!data/README.md
+!data/climate_full_dataset.csv
+!data/modelling_data.csv
+!data/production_full_dataset.csv
+
+# -----------------------------------------------------------------------------
 # Secrets and local environment configuration
 # -----------------------------------------------------------------------------
 .env
