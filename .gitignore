@@ -1,12 +1,4 @@
 # -----------------------------------------------------------------------------
-# Local data
-# -----------------------------------------------------------------------------
-# Keep the directory documentation under version control, but exclude local
-# datasets and exports used by the notebooks.
-data/**
-!data/README.md
-
-# -----------------------------------------------------------------------------
 # Secrets and local environment configuration
 # -----------------------------------------------------------------------------
 .env
