@@ -106,7 +106,7 @@ It:
 - reads compressed climate data from Google Cloud Storage;
 - combines multiple historical source areas where administrative boundaries require it;
 - removes duplicate cell–day observations caused by territorial overlap;
-- applies the reusable transformation in `province_transformation.py`;
+- applies the reusable transformation in `src/province_transformation.py`;
 - assigns final province and region labels;
 - concatenates the monthly outputs;
 - validates the complete dataset;
@@ -515,7 +515,7 @@ When modifying the notebooks:
 - preserve top-to-bottom execution;
 - keep chronological validation explicit;
 - keep final-test evidence separate from model-selection evidence;
-- move reusable functions to `src/`;
+- keep reusable project utilities in `src/` and import them through the `src` package;
 - distinguish predictive interpretation from causal claims;
 - keep credentials and generated private data outside Git;
 - document any methodological change that would alter reported results.
