@@ -60,58 +60,53 @@ This makes it possible to evaluate not only the central expected yield but also 
 The repository covers the complete analytical workflow rather than only the final machine-learning experiment.
 
 ```text
-Daily gridded climate data
-          │
-          │ validation + spatial aggregation
-          ▼
-Monthly provincial climate indicators
-          │
-          ├───────────────┐
-          │               │
-          │        Agricultural production
-          │               │
-          └───────┬───────┘
-                  ▼
-          Curated BigQuery tables
-                  │
-                  ├──────────────► Exploratory analysis
-                  │
-                  ▼
-        Versioned BigQuery SQL layer
-                  │
-                  │ crop calendar
-                  │ phase aggregation
-                  │ historical yield features
-                  ▼
-          Province × crop × year
-             modelling table
-                  │
-          ┌───────┴────────┐
-          │                │
-          ▼                ▼
- direct BigQuery load   optional local CSV
-          │                │
-          └───────┬────────┘
-                  ▼
-       Chronological model development
-                  │
-                  ▼
-          Frozen final models
-                  │
-                  ▼
-          2019–2022 final test
-                  │
-                  ▼
-   Probabilistic + territorial diagnostics
+Daily gridded climate data              Agricultural production
+          │                                      │
+          │ climate ETL                          │ production ETL
+          ▼                                      ▼
+ Curated climate dataset                Curated production dataset
+          │                                      │
+          └──────────────────┬───────────────────┘
+                             ▼
+                    Curated analytical data
+                             │
+                 ┌───────────┴───────────┐
+                 │                       │
+                 ▼                       ▼
+       versioned CSV snapshots    curated BigQuery tables
+                 │                       │
+                 ▼                       ▼
+     EDA + feature engineering    versioned BigQuery SQL
+                 │                       │
+                 ▼                       ▼
+      data/modelling_data.csv    ml.modeling_dataset_v1
+                 │                       │
+                 └───────────┬───────────┘
+                             ▼
+                 ML_Quantile_Modelling
+                             │
+                             ▼
+              chronological model development
+                             │
+                             ▼
+                    frozen final models
+                             │
+                             ▼
+                    2019–2022 final test
+                             │
+                             ▼
+             probabilistic + territorial diagnostics
 ```
 
 The climate ETL preserves more than simple monthly averages. It includes information about local extremes, spatial variability, affected territorial share, event frequency, consecutive-event duration, precipitation intensity, evapotranspiration, radiation and altitude.
 
 Agricultural-production processing also retains explicit quality information so that structural zeroes, missing source components and reconstructed territorial units are not silently mixed with ordinary observations.
 
-The hand-off from the curated cloud data to modelling is implemented through the versioned BigQuery scripts under [`sql/`](sql/). These scripts define the crop calendar, validate the climate aggregation policy, construct phase-level climate features and materialize the final province × crop × harvest-year modelling table used by the ML workflow.
+The repository keeps two complementary and reproducible data-access paths. The processed analytical datasets are versioned under [`data/`](data/) as static CSV snapshots, allowing the EDA and modelling workflow to be inspected and reproduced locally after cloning the repository. In parallel, the curated climate and production tables are available in BigQuery.
 
-The modelling notebook can load this table directly from BigQuery. Equivalent local CSV exports can also be used as a development/cache layer; they are intentionally excluded from version control because of their size.
+For the local analytical path, the EDA integrates the curated production and climate snapshots, defines the crop-season feature representation and produces the versioned `data/modelling_data.csv` table. For the cloud path, the versioned BigQuery scripts under [`sql/`](sql/) reproduce the warehouse-side transformation and materialize `agriclimate-intelligence.ml.modeling_dataset_v1`.
+
+The modelling notebook supports both representations: it can load the modelling table directly from BigQuery or use the versioned local `data/modelling_data.csv` snapshot. The large raw JRC MARS gridded agro-meteorological source files are the data intentionally kept outside Git; they remain in Google Cloud Storage because their combined size is approximately 7 GB.
 
 ## Exploratory analysis and feature engineering
 
@@ -322,7 +317,10 @@ agriclimate-intelligence/
 ├── .github/
 │   └── CODEOWNERS
 ├── data/
-│   └── README.md                    # local data policy and reproduction notes
+│   ├── climate_full_dataset.csv     # curated climate snapshot
+│   ├── modelling_data.csv           # modelling-ready analytical snapshot
+│   ├── production_full_dataset.csv  # curated agricultural-production snapshot
+│   └── README.md                    # data provenance and reproduction notes
 ├── images/                          # figures used in project documentation
 ├── notebooks/
 │   ├── EDA_AgriClimate_Intelligence.ipynb
@@ -349,12 +347,12 @@ agriclimate-intelligence/
 └── README.md
 ```
 
-The repository intentionally separates notebook orchestration, reusable Python code, warehouse transformations and local generated data:
+The repository intentionally separates notebook orchestration, reusable Python code, warehouse transformations, versioned analytical snapshots and large raw source data:
 
 - [`notebooks/README.md`](notebooks/README.md) documents each analytical workflow;
 - [`src/README.md`](src/README.md) documents the shared Python utilities;
 - [`sql/README.md`](sql/README.md) documents the BigQuery transformation layer used to materialize the modelling dataset;
-- [`data/README.md`](data/README.md) explains the local data convention and why the full generated datasets are not committed.
+- [`data/README.md`](data/README.md) documents the three versioned analytical CSV snapshots, their provenance, the parallel BigQuery resources and why the much larger raw gridded source files are kept outside Git.
 
 ## Suggested reading path
 
@@ -370,7 +368,7 @@ For the complete data-engineering path, start from the ETL notebooks documented 
 
 ## Installation and authentication
 
-The project was developed and tested with **Python 3.13.14**. The repository provides pinned direct dependencies in [`requirements.txt`](requirements.txt).
+The project was developed and tested with **Python 3.13.14**. The repository provides pinned project dependencies in [`requirements.txt`](requirements.txt).
 
 Install them with:
 
@@ -404,21 +402,29 @@ The `tabpfn-client` and related interpretation packages are pinned in [`requirem
 
 ## Reproducibility notes
 
-The warehouse-side transformation from the curated climate and production tables to the modelling dataset is versioned under [`sql/`](sql/). The canonical modelling table used by the ML workflow is:
+The repository deliberately provides both local analytical snapshots and a cloud-side reconstruction path.
+
+The three processed datasets under [`data/`](data/) are versioned in Git:
+
+```text
+data/production_full_dataset.csv
+data/climate_full_dataset.csv
+data/modelling_data.csv
+```
+
+These files make the principal EDA and modelling workflow accessible after cloning the repository without requiring access to the project's Google Cloud resources.
+
+In parallel, the warehouse-side transformation from the curated climate and production tables to the modelling dataset is versioned under [`sql/`](sql/). The corresponding BigQuery modelling table is:
 
 ```text
 agriclimate-intelligence.ml.modeling_dataset_v1
 ```
 
-The modelling notebook supports direct loading from BigQuery. For local development, an equivalent CSV export can also be placed under `data/` and used as a cache/fallback:
+The modelling notebook can consume either the versioned local `data/modelling_data.csv` snapshot or the BigQuery table.
 
-```text
-data/modelling_data.csv
-```
+The data intentionally excluded from Git are the large raw JRC MARS gridded agro-meteorological source files, approximately 7 GB in total. They are retained in Google Cloud Storage and can be used to rebuild the upstream climate-processing workflow. [`data/README.md`](data/README.md) documents the provenance, local snapshots and cloud-side data strategy in detail.
 
-Large source and generated data files are intentionally excluded from Git version control; [`data/README.md`](data/README.md) documents the expected local structure and the corresponding cloud sources.
-
-The analytical workflow is complete. The repository now includes the versioned SQL layer, pinned Python requirements, local environment template, cloud-authentication notes and explicit model/API reproducibility information needed to reconstruct the published workflow without committing private credentials or large generated datasets.
+The analytical workflow is complete. The repository now includes versioned analytical CSV snapshots, the BigQuery SQL layer, pinned Python requirements, a local environment template, cloud-authentication notes and explicit model/API reproducibility information, while private credentials and large raw source files remain outside version control.
 
 ## Academic context
 
