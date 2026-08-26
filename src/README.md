@@ -20,7 +20,7 @@ The notebooks retain experiment order, narrative and domain interpretation, whil
 | `eda_utils.py` | Shared exploratory-analysis helpers and project plotting style | EDA + modelling |
 | `modelling_utils.py` | Quantile modelling, temporal validation, SFS, CatBoost, post-processing, aggregation and SHAP support | Modelling notebook |
 
-`__init__.py` marks `src` as a Python package namespace, although the repository is not currently distributed as an installable package.
+`__init__.py` marks `src` as a Python package. The notebooks import reusable utilities through this package, although the repository is not currently distributed as an installable Python package.
 
 ---
 
@@ -439,7 +439,7 @@ This adapter allows the final TabPFN models to be interpreted with the SHAP/shap
 
 ## Import pattern
 
-The notebooks are designed to run from the `notebooks/` directory and explicitly add `src/` to the Python path.
+The notebooks are designed to run from the `notebooks/` directory and add the project root to the Python path so that `src` is imported as a package.
 
 ```python
 from pathlib import Path
@@ -448,18 +448,23 @@ import sys
 CURRENT_DIR = Path.cwd().resolve()
 PROJECT_ROOT = CURRENT_DIR.parent
 
-SRC_DIR = PROJECT_ROOT / "src"
 DATA_DIR = PROJECT_ROOT / "data"
 
-if str(SRC_DIR) not in sys.path:
-    sys.path.append(str(SRC_DIR))
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 ```
 
-Utilities can then be imported with:
+Utilities are then imported through the `src` package:
 
 ```python
-from eda_utils import *
-from modelling_utils import *
+from src.eda_utils import *
+from src.modelling_utils import *
+```
+
+Modules can also be imported explicitly where appropriate, for example:
+
+```python
+from src.province_transformation import transform_province_dataframe
 ```
 
 ## Development conventions

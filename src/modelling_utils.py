@@ -20,7 +20,7 @@ from sklearn.metrics import make_scorer, mean_pinball_loss
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from eda_utils import set_plot_style, GOLD, TEAL, TEAL_LIGHT, DARK, GRAY_MED
+from .eda_utils import set_plot_style, GOLD, TEAL, TEAL_LIGHT, DARK, GRAY_MED
 
 
 __all__ = [
