@@ -144,6 +144,8 @@ Only after the model specification for each crop is frozen are those observation
 
 The test set is never used for feature selection, early stopping, hyperparameter decisions, model-family comparison or tie-breaking.
 
+Final model selection follows a predefined common protocol across crops. **Q2 pinball loss on the 2016–2018 outer-validation period is the primary selection metric**. A relative improvement of at least **5%** over the strongest alternative is considered practically meaningful; when the leading candidates fall below this threshold, they are treated as practically equivalent and compared, in order, on temporal robustness, quantile behaviour, parsimony and reproducibility. The complete decision rule is documented in [`docs/model_selection_protocol.md`](docs/model_selection_protocol.md).
+
 ## Models compared
 
 The modelling sequence deliberately moves from simple to more flexible approaches:
@@ -154,7 +156,7 @@ The modelling sequence deliberately moves from simple to more flexible approache
 4. **L1 quantile regression** - regularization sensitivity check.
 5. **CatBoost** - conventional nonlinear tabular model.
 6. **TabPFN** - tabular foundation model evaluated with historical, selected and full feature representations.
-7. **Temporal robustness and quantile diagnostics** - tie-breakers for close validation results.
+7. **Predefined model-selection protocol** - Q2 outer-validation performance is the primary criterion; practically equivalent candidates are resolved through temporal robustness, quantile behaviour, parsimony and reproducibility.
 
 This design makes model complexity something that has to earn its place through out-of-time predictive evidence.
 
@@ -321,6 +323,8 @@ agriclimate-intelligence/
 │   ├── modelling_data.csv           # modelling-ready analytical snapshot
 │   ├── production_full_dataset.csv  # curated agricultural-production snapshot
 │   └── README.md                    # data provenance and reproduction notes
+├── docs/
+│   └── model_selection_protocol.md  # predefined model-selection decision rule
 ├── images/                          # figures used in project documentation
 ├── notebooks/
 │   ├── EDA_AgriClimate_Intelligence.ipynb
@@ -350,6 +354,7 @@ agriclimate-intelligence/
 The repository intentionally separates notebook orchestration, reusable Python code, warehouse transformations, versioned analytical snapshots and large raw source data:
 
 - [`notebooks/README.md`](notebooks/README.md) documents each analytical workflow;
+- [`docs/model_selection_protocol.md`](docs/model_selection_protocol.md) documents the predefined decision rule used to select the final crop-specific models;
 - [`src/README.md`](src/README.md) documents the shared Python utilities;
 - [`sql/README.md`](sql/README.md) documents the BigQuery transformation layer used to materialize the modelling dataset;
 - [`data/README.md`](data/README.md) documents the three versioned analytical CSV snapshots, their provenance, the parallel BigQuery resources and why the much larger raw gridded source files are kept outside Git.
@@ -360,9 +365,10 @@ For someone reviewing the project as a portfolio:
 
 1. **This README** - problem, methodology and principal results.
 2. [`EDA_AgriClimate_Intelligence.ipynb`](notebooks/EDA_AgriClimate_Intelligence.ipynb) - analytical reasoning and crop-phase feature engineering.
-3. [`ML_Quantile_Modelling.ipynb`](notebooks/ML_Quantile_Modelling.ipynb) - full model-development, selection, final-test and interpretation workflow.
-4. [`sql/`](sql/) - warehouse-side construction of the modelling dataset from the curated BigQuery tables.
-5. [`src/`](src/) - reusable ETL, EDA and modelling utilities.
+3. [`docs/model_selection_protocol.md`](docs/model_selection_protocol.md) - predefined criteria used to freeze the final crop-specific model specifications before test evaluation.
+4. [`ML_Quantile_Modelling.ipynb`](notebooks/ML_Quantile_Modelling.ipynb) - full model-development, selection, final-test and interpretation workflow.
+5. [`sql/`](sql/) - warehouse-side construction of the modelling dataset from the curated BigQuery tables.
+6. [`src/`](src/) - reusable ETL, EDA and modelling utilities.
 
 For the complete data-engineering path, start from the ETL notebooks documented in [`notebooks/README.md`](notebooks/README.md).
 

@@ -1,18 +1,18 @@
 # Notebooks
 
-This directory contains the complete executable analytical workflow for **AgriClimate Intelligence**, from source-data transformation to final crop-yield modelling and interpretation.
+This directory contains the executable analytical notebooks for **AgriClimate Intelligence**, from source-data transformation to crop-yield modelling and interpretation.
 
-The main analysis is complete. The notebooks are organized so that the data-engineering logic, exploratory reasoning, feature engineering and model-development decisions remain inspectable rather than being hidden behind a single pipeline.
+The notebooks are organized so that the data-engineering logic, exploratory reasoning, feature engineering and model-development decisions remain inspectable rather than being hidden behind a single pipeline. Reusable transformations and modelling utilities are kept separately under [`src/`](../src/), while the notebooks document how those components are applied within the analytical workflow.
 
 ## Notebook overview
 
-| Notebook | Purpose | Main output | Status |
-| --- | --- | --- | --- |
-| `ETL_Climate_Example.ipynb` | Demonstrate and validate the climate transformation on one source territory | One fully inspected monthly provincial climate example | Complete |
-| `ETL_Climate_Data.ipynb` | Run the climate ETL across all mapped Italian areas | Consolidated monthly provincial climate dataset | Complete |
-| `ETL_Production_Data.ipynb` | Harmonize agricultural area, production and yield data | Curated province × crop × year production dataset | Complete |
-| `EDA_AgriClimate_Intelligence.ipynb` | Integrate curated data, analyse yield/climate patterns and engineer crop-season predictors | Analytical findings + modelling dataset | Complete |
-| `ML_Quantile_Modelling.ipynb` | Develop, select, test and interpret crop-specific probabilistic models | Final models, 2019–2022 test results, SHAP and territorial diagnostics | Complete |
+| Notebook | Purpose | Main output |
+| --- | --- | --- |
+| `ETL_Climate_Example.ipynb` | Demonstrate and validate the climate transformation on one source territory | One fully inspected monthly provincial climate example |
+| `ETL_Climate_Data.ipynb` | Run the climate ETL across all mapped Italian areas | Consolidated monthly provincial climate dataset |
+| `ETL_Production_Data.ipynb` | Harmonize agricultural area, production and yield data | Curated province × crop × year production dataset |
+| `EDA_AgriClimate_Intelligence.ipynb` | Integrate curated data, analyse yield/climate patterns and engineer crop-season predictors | Analytical findings + modelling dataset |
+| `ML_Quantile_Modelling.ipynb` | Develop, select, test and interpret crop-specific probabilistic models | Final models, 2019–2022 test results, SHAP and territorial diagnostics |
 
 ## Workflow
 
@@ -57,7 +57,7 @@ For the full workflow:
 5. ML_Quantile_Modelling.ipynb
 ```
 
-For a portfolio-oriented review, starting directly from the EDA and modelling notebooks is usually sufficient.
+For a portfolio-oriented review, starting directly from the EDA and modelling notebooks is usually sufficient. The predefined model-selection decision rule used in the modelling workflow is documented separately in [`../docs/model_selection_protocol.md`](../docs/model_selection_protocol.md).
 
 ---
 
@@ -221,7 +221,7 @@ This allows the same physical variable to play different predictive roles depend
 
 The EDA produces the feature representation used by the modelling notebook.
 
-The current modelling table contains:
+The modelling table contains:
 
 ```text
 7,576 supervised observations
@@ -327,7 +327,7 @@ The retained sets contain:
 | Soft wheat | 18 | 3 | 15 |
 | Grain maize | 25 | 4 | 21 |
 
-The completed search is stored explicitly in the notebook rather than rerun on every execution.
+The resulting search is stored explicitly in the notebook rather than rerun on every execution.
 
 ### 4. Temporal stability
 
@@ -357,15 +357,22 @@ TabPFN introduces a tabular foundation model comparison using:
 
 Native numerical missing values are preserved where the model supports them.
 
-### 9. Model-selection tie-breakers
+### 9. Model-selection protocol
 
-When outer-validation candidates are sufficiently close, selection is not based mechanically on the smallest single score.
+Final model selection follows the same predefined decision rule for all three crops.
 
-The notebook uses:
+**Q2 pinball loss on the 2016–2018 outer-validation period is the primary selection metric.** For each crop, the eligible candidate with the lowest Q2 outer-validation loss is identified, and a relative improvement of at least **5%** over the strongest alternative is considered practically meaningful.
 
-- temporal robustness across all pre-test folds;
-- Q1/Q2/Q3 predictive behaviour;
-- calibration information where relevant.
+When the difference between the best-performing candidates is below this threshold, the models are treated as practically equivalent and the following criteria are applied in order:
+
+1. temporal robustness across the chronological development folds;
+2. quantile behaviour, including Q1/Q2/Q3 performance, empirical coverage and relevant quantile-crossing issues where available;
+3. parsimony of the specification;
+4. reproducibility.
+
+If no meaningful distinction remains, the simpler reference specification is retained.
+
+The complete model-selection rule, including the final freezing and refit procedure, is documented in [`../docs/model_selection_protocol.md`](../docs/model_selection_protocol.md).
 
 ### 10. Frozen final models
 
@@ -484,11 +491,13 @@ The interpretation is predictive rather than causal.
 
 ## Data access
 
-The curated datasets are available through Google Cloud Storage and BigQuery.
+The repository provides both local analytical snapshots and cloud-based data access.
 
-The modelling notebook supports loading the modelling dataset from BigQuery, while the equivalent local CSV structure is retained as a reproducible local-data option where applicable.
+The processed production, climate and modelling datasets are versioned under [`../data/`](../data/) as CSV snapshots, allowing the principal EDA and modelling workflows to be inspected and reproduced locally after cloning the repository.
 
-Large source and generated datasets are not stored directly in the Git repository.
+In parallel, the curated cloud datasets are available through Google Cloud Storage and BigQuery. The modelling notebook can load the modelling table either from the versioned local CSV snapshot or directly from BigQuery.
+
+The large raw JRC MARS gridded agro-meteorological source files are intentionally kept outside Git because of their size and are retained in Google Cloud Storage. Data provenance and the local/cloud reproduction strategy are documented in [`../data/README.md`](../data/README.md).
 
 ## Authentication
 
@@ -508,14 +517,14 @@ For reproducibility, the `tabpfn-client` package version is pinned in the projec
 
 `tabpfn-v3-regressor-v3_default.ckpt`
 
-## Notebook conventions
+## Methodological and reproducibility notes
 
-When modifying the notebooks:
+The notebooks follow a few project-wide conventions that are important for interpreting and reproducing the analysis:
 
-- preserve top-to-bottom execution;
-- keep chronological validation explicit;
-- keep final-test evidence separate from model-selection evidence;
-- keep reusable project utilities in `src/` and import them through the `src` package;
-- distinguish predictive interpretation from causal claims;
-- keep credentials and generated private data outside Git;
-- document any methodological change that would alter reported results.
+- notebooks are designed for top-to-bottom execution;
+- chronological validation is kept explicit;
+- final-test evidence is kept separate from model-selection evidence;
+- reusable project utilities are maintained in [`../src/`](../src/) and imported through the `src` package;
+- model interpretation is predictive and should not be read as causal evidence;
+- credentials and private or large raw source data remain outside Git;
+- methodological choices that affect the reported results are documented explicitly.
